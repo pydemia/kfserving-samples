@@ -1,0 +1,4 @@
+#!/bin/bash
+
+CURRENT_PATH=$(dirname $0)
+docker build $CURRENT_PATH -t pydemia/celery-dealer:latest

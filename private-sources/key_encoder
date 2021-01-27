@@ -1,0 +1,4 @@
+#!/bin/bash
+
+read -p "KEYSTRING: " KEY_STRING
+echo -ne $KEY_STRING | base64

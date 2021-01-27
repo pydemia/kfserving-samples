@@ -1,0 +1,74 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  controller-tools.k8s.io: "1.0"
+  name: microorganism-gpu
+  namespace: default
+spec:
+  default:
+    predictor:
+      custom:
+        nodeSelector:
+          cloud.google.com/gke-accelerator: nvidia-tesla-t4  # or nvidia-tesla-p100 or nvidia-tesla-p4 or nvidia-tesla-v100 or nvidia-tesla-k80
+        container:
+          image: gcr.io/ds-ai-platform/microorganism:v0.1.0-http-gpu
+          name: kfserving-container
+          env:
+            - name: MODEL_NAME
+              value: "microorganism"
+            - name: MODEL_BASE_PATH
+              value: "/models"
+            - name: STORAGE_URI
+              value: gs://brain-ds/microorganism_13/model/frozen_inference_graph.pb
+          ports:
+            - containerPort: 8501
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2
+              memory: 4Gi
+              nvidia.com/gpu: 1
+            requests:
+              cpu: 2
+              memory: 4Gi
+
+#
+# kubectl get kpa -o yaml
+# kubectl get ksvc microorganism-gpu-predictor-default -o yaml
+# kubectl -n inference-test get revision microorganism-gpu-predictor-default-ttlpz -o yaml
+# kubectl label ns inference-test serving.kubeflow.org/inferenceservice=enabled
+# apiVersion: "serving.kubeflow.org/v1alpha2"
+# kind: "InferenceService"
+# metadata:
+#   controller-tools.k8s.io: "1.0"
+#   name: microorganism
+#   namespace: inference-test
+# spec:
+#   default:
+#     predictor:
+#       custom:
+#         serviceAccountName: yjkim-kube-admin-sa-gcr
+#         container:
+#           image: gcr.io/ds-ai-platform/microorganism:v0.1.0-http
+#           name: kfserving-container
+#           env:
+#             - name: MODEL_NAME
+#               value: "microorganism"
+#             - name: MODEL_BASE_PATH
+#               value: "/models"
+#             # - name: STORAGE_URI
+#             #   value: gs://brain-ds/microorganism_13/model/frozen_inference_graph.pb
+#           ports:
+#             - containerPort: 8501
+#               protocol: TCP
+#           resources:
+#             limits:
+#               cpu: 4
+#               memory: 10Gi
+#             requests:
+#               cpu: 4
+#               memory: 10Gi
+
+# # kubectl -n inference-test get revision microorganism-predictor-default-ttlpz -o yaml
+# # kubectl label ns inference-test serving.kubeflow.org/inferenceservice=enabled
+

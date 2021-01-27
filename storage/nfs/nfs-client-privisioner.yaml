@@ -1,0 +1,152 @@
+---
+# Source: nfs-client-provisioner/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+  name: nfs-manager
+---
+# Source: nfs-client-provisioner/templates/storageclass.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+  name: nfs
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: cluster.local/nfs-client-provisioner
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+parameters:
+  archiveOnDelete: "true"
+---
+# Source: nfs-client-provisioner/templates/clusterrole.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+  name: nfs-client-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "update", "patch"]
+---
+# Source: nfs-client-provisioner/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+  name: run-nfs-client-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-manager
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: nfs-client-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: nfs-client-provisioner/templates/role.yaml
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+  name: leader-locking-nfs-client-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+# Source: nfs-client-provisioner/templates/rolebinding.yaml
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+  name: leader-locking-nfs-client-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: nfs-manager
+    namespace: default
+roleRef:
+  kind: Role
+  name: leader-locking-nfs-client-provisioner
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: nfs-client-provisioner/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-client-provisioner
+  labels:
+    app: nfs-client-provisioner
+    chart: nfs-client-provisioner-1.2.8
+    heritage: Helm
+    release: nfs-client-provisioner
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nfs-client-provisioner
+      release: nfs-client-provisioner
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: nfs-client-provisioner
+        release: nfs-client-provisioner
+    spec:
+      serviceAccountName: nfs-manager
+      containers:
+        - name: nfs-client-provisioner
+          image: "quay.io/external_storage/nfs-client-provisioner:v3.1.0-k8s1.11"
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: nfs-client-root
+              mountPath: /persistentvolumes
+          env:
+            - name: PROVISIONER_NAME
+              value: cluster.local/nfs-client-provisioner
+            - name: NFS_SERVER
+              value: 61.97.6.153
+            - name: NFS_PATH
+              value: /pacs/input
+      volumes:
+        - name: nfs-client-root
+          nfs:
+            server: 61.97.6.153
+            path: /pacs/input

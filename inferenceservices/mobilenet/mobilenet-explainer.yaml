@@ -1,0 +1,111 @@
+apiVersion: "serving.kubeflow.org/v1alpha2"
+kind: "InferenceService"
+metadata:
+  # controller-tools.k8s.io: "1.0"
+  name: mobilenet-exp
+spec:
+  default:
+    predictor:
+      serviceAccountName: yjkim-private-deployer-s3
+      tensorflow:
+        storageUri: "s3://yjkim-models/kfserving/mobilenet/predictor/mobilenet_saved_model"
+        # runtimeVersion: "1.14.0"
+        # resources:
+        #   requests:
+        #     cpu: 500m
+        #     memory: 1Gi                        
+        #   limits:
+        #     cpu: 1000m
+        #     memory: 2Gi
+    explainer:
+      # serviceAccountName: s3-private-sa
+      # custom:
+      #   imagePullSecrets:
+      #   - name: docker-secret-key
+      #   container:
+      #     image: docker.io/pydemia/alibiexplainer:v0.4.0
+      #     name: kfserving-container
+      #     env:
+      #     - name: MODEL_NAME
+      #       value: mobilenet-exp
+      #     # - name: MODEL_BASE_PATH
+      #     #   value: /mnt/models
+      #     - name: STORAGE_URI
+      #       value: s3://yjkim-models/kfserving/mobilenet/explainer
+      #   config:
+      #     batch_size: "1"
+      serviceAccountName: yjkim-private-deployer-s3
+      alibi:
+        type: AnchorImages
+        storageUri: "s3://yjkim-models/kfserving/mobilenet/explainer"
+        runtimeVersion: "v0.3.2-predict_fn"
+        config:
+          batch_size: "1"
+        # resources:
+        #   requests:
+        #     cpu: 200m
+        #     memory: 5Gi            
+        #   limits:
+        #     cpu: 500m
+        #     memory: 10Gi
+
+
+#### Failed to create VirtualService default/mobilenet-predictor-default-mesh:
+#### virtualservices.networking.istio.io "mobilenet-predictor-default-mesh"
+#### already exists 
+
+# kubectl delete virtualservice mobilenet-predictor-default-mesh
+
+
+## To list all Ingress resources and their corresponding labels, run the following command:
+# kubectl get ingresses.networking.internal.knative.dev -o=custom-columns='NAME:.metadata.name,LABELS:.metadata.labels'
+
+
+
+
+
+# kubectl label ns inference-test serving.kubeflow.org/inferenceservice=enabled
+# kubectl get ns inference-test --show-labels
+
+# RevisionMissing Error
+## Storage Initializer fails to download model
+# kubectl -n inference-test get revision \
+#    $(kubectl -n inference-test get configuration mobilenet-predictor-default \
+#     --output jsonpath="{.status.latestCreatedRevisionName}") 
+# kubectl -n inference-test get pod -l model=mobilenet
+
+## Inference Service fails to start
+# $(kubectl -n inference-test get pod -l model=mobilenet -o jsonpath="{.items..metadata.name}")
+# kubectl -n inference-test logs \
+#   $(kubectl -n inference-test get pod -l model=mobilenet -o jsonpath="{.items..metadata.name}") \
+#   kfserving-container
+
+# kubectl -n inference-test get inferenceservice mobilenet
+# kubectl -n inference-test describe inferenceservice mobilenet
+# kubectl -n inference-test describe deployment mobilenet
+# kubectl -n inference-test get ksvc mobilenet-predictor-default -o yaml
+# kubectl -n inference-test get ksvc mobilenet-explainer-default -o yaml
+# kubectl -n inference-test get ksvc mobilenet-transformer-default -o yaml
+# kubectl -n inference-test get kpa -o yaml
+# kubectl -n inference-test get pods -l model=mobilenet
+# kubectl -n inference-test describe pods -l model=mobilenet
+# kubectl -n inference-test describe deployment mobilenet
+# kubectl -n inference-test get revision mobilenet-predictor-default-ttlpz -o yaml
+# 
+# kubectl -n inference-test get events mobilenet
+
+
+
+# kubectl get inferenceservice mobilenet
+# kubectl describe inferenceservice mobilenet
+# kubectl describe deployment mobilenet
+# kubectl get ksvc mobilenet-predictor-default -o yaml
+# kubectl get ksvc mobilenet-explainer-default -o yaml
+# kubectl get ksvc mobilenet-transformer-default -o yaml
+# kubectl get kpa -o yaml
+# kubectl get pods -l model=mobilenet
+# kubectl describe pods -l model=mobilenet
+# kubectl describe deployment mobilenet
+# kubectl get revision mobilenet-predictor-default-ttlpz -o yaml
+# 
+# kubectl get events mobilenet

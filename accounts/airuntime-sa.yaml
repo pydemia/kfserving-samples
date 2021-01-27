@@ -1,0 +1,27 @@
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airuntime-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: airuntime
+  namespace: airuntime-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+# This cluster role binding allows anyone in the "manager" group to read secrets in any namespace.
+kind: ClusterRoleBinding
+metadata:
+  name: airuntime
+subjects:
+- kind: ServiceAccount
+  name: airuntime # Name is case sensitive
+  namespace: airuntime-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+  # name: cluster-admin
+

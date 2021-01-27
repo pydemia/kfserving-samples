@@ -1,0 +1,31 @@
+version: "3.2"
+# networks:
+#   queue-test:
+#     driver: bridge
+services:
+  rabbitmq:
+    image: bitnami/rabbitmq
+    ports:
+      - "15672:15672"
+      - "25672:25672"
+      - "4369:4369"
+      - "5672:5672"
+    environment:
+      - RABBITMQ_USERNAME=kfs
+      - RABBITMQ_PASSWORD=kfs
+  redis:
+    image: bitnami/redis
+    ports:
+      - "6370:6379"
+    environment:
+      - REDIS_PASSWORD=kfs
+  celery-dealer:
+    image: pydemia/celery-dealer:latest
+  predictor:
+    image: pydemia/dummy-serving:latest
+    ports:
+      - "8500:8500"
+      - "8501:8501"
+    environment:
+      - MODEL_NAME=test-prd
+      - MODEL_BASE_PATH=/models

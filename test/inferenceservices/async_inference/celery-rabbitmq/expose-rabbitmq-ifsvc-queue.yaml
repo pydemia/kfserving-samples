@@ -1,0 +1,86 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: rabbitmq-vs
+  namespace: ifsvc-queue
+spec:
+  hosts:
+  - "*"
+  gateways:
+  # This is the gateway shared in knative service mesh.
+  - knative-ingress-gateway.knative-serving.svc.cluster.local
+  http:
+  - match:
+    # - port: 80
+    - method:
+        exact: GET
+      uri:
+        prefix: /ifq/rabbitmq/dashboard/
+    rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      # authority: rabbitmq.rabbitmq.svc.cluster.local
+      uri: /
+    route:
+    - destination:
+        host: rabbitmq
+        port:
+          number: 15672
+  # tcp:
+  # - match:
+  #   # - port: 80
+  #   - uri:
+  #       prefix: /rabbitmq/amqp/
+  #   rewrite:
+  #     # Rewrite the original host header to the host header of Search service
+  #     # in order to redirect requests to Search service.
+  #     # authority: rabbitmq.rabbitmq.svc.cluster.local
+  #     uri: /
+  #   route:
+  #   - destination:
+  #       host: rabbitmq
+  #       port:
+  #         number: 5672
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: rabbitmq-amqp-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 5672
+      name: tcp-amqp-rmq
+      protocol: TCP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: rabbitmq-amqp-vs
+  namespace: ifsvc-queue
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - rabbitmq-amqp-gateway.istio-system
+  tcp:
+  - match:
+    - port: 5672
+    #   uri:
+    #     prefix: /rabbitmq/amqp/
+    # rewrite:
+    #   # Rewrite the original host header to the host header of Search service
+    #   # in order to redirect requests to Search service.
+    #   # authority: grafana.knative-monitoring.svc.cluster.local
+    #   uri: /
+    route:
+    - destination:
+        host: rabbitmq
+        port:
+          number: 5672
+---

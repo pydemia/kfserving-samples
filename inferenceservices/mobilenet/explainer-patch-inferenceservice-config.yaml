@@ -1,0 +1,12 @@
+data:
+  explainers: |-
+    {
+        "alibi": {
+            "image" : "docker.io/pydemia/alibiexplainer",
+            "defaultImageVersion": "v0.3.2-predict_fn",
+            "allowedImageVersions": [
+               "v0.4.0-predict_fn",
+               "v0.3.2-predict_fn"
+            ]
+        }
+    }

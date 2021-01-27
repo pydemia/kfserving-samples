@@ -1,0 +1,4 @@
+#!/bin/bash
+
+docker build -f tf-graphtools-1.15.2.Dockerfile . -t pydemia/tf-graphtools:tf1.15.2 && docker push pydemia/tf-graphtools:tf1.15.2
+docker build -f tf-graphtools-2.2.0.Dockerfile . -t pydemia/tf-graphtools:tf2.2.0 && docker push pydemia/tf-graphtools:tf2.2.0

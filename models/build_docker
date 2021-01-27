@@ -1,0 +1,4 @@
+#!/bin/bash
+
+CURRENT_PATH=$(dirname $0)
+docker build $CURRENT_PATH -t gcr.io/ds-ai-platform/hemorrhage:v0.1.0
