@@ -1,0 +1,110 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: kubernetes-dashboard-istio-gw
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15036
+      name: http-kubernetes-dashboard
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: kubernetes-dashboard-gw
+  namespace: kubernetes-dashboard
+spec:
+  selector:
+    istio: ingressgateway # use istio default ingress gateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: PASSTHROUGH
+      # mode: SIMPLE
+      # serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+      # privateKey: /etc/istio/ingressgateway-certs/tls.key
+      # mode: MUTUAL
+      # serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+      # privateKey: /etc/istio/ingressgateway-certs/tls.key
+      # caCertificates: /etc/istio/ingressgateway-ca-certs/ca-chain.cert.pem
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: kubernetes-dashboard-vs
+  namespace: kubernetes-dashboard
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - kubernetes-dashboard-gw.kubernetes-dashboard
+  # tls:
+  # - match:
+  #   - port: 443
+  #     sniHosts:
+  #     - "*"
+  #   route:
+  #   - destination:
+  #       # host: my-nginx
+  #       host: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
+  #       port:
+  #         number: 443
+  http:
+  - match:
+    - uri:
+        prefix: /dashboard
+      port: 443
+    # rewrite:
+    #   # Rewrite the original host header to the host header of Search service
+    #   # in order to redirect requests to Search service.
+    #   # authority: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
+    #   # uri: /
+    route:
+    - destination:
+        # host: my-nginx
+        host: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+spec:
+  host: kubernetes-dashboard
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin
+  namespace: kubernetes-dashboard

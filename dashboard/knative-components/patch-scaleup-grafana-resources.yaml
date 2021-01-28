@@ -1,0 +1,13 @@
+spec:
+  template:
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:7.2.2
+        resources:
+          requests:
+            memory: 500Mi
+            cpu: 500m
+          limits:
+            memory: 1000Mi
+            cpu: 1000m

@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: knative-monitoring
+  labels:
+    app: grafana
+    # serving.knative.dev/release: "v0.15.0"
+spec:
+  # type: NodePort
+  # type: LoadBalancer
+  ports:
+  - port: 30802
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: grafana
+# ---
+# apiVersion: networking.istio.io/v1alpha3
+# kind: VirtualService
+# metadata:
+#   name: knative-grafana-vs
+#   namespace: knative-monitoring
+# spec:
+#   gateways:
+#   # This is the gateway shared in knative service mesh.
+#   - knative-ingress-gateway.knative-serving.svc.cluster.local
+#   hosts:
+#   - '*'
+#   http:
+#   - match:
+#     # - method:
+#     #     exact: GET
+#     - uri:
+#         prefix: /knative/grafana/
+#     rewrite:
+#     #   # Rewrite the original host header to the host header of Search service
+#     #   # in order to redirect requests to Search service.
+#       authority: grafana.knative-monitoring.svc.cluster.local
+#     #   # uri: /knative/grafana
+#     route:
+#     - destination:
+#         host: grafana.knative-monitoring.svc.cluster.local
+#         port:
+#           number: 30802
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: knative-grafana-vs
+  namespace: knative-monitoring
+spec:
+  gateways:
+  # This is the gateway shared in knative service mesh.
+  - knative-ingress-gateway.knative-serving.svc.cluster.local
+  hosts:
+  - '*'
+  http:
+  - match:
+    # - method:
+    #     exact: GET
+    - uri:
+        prefix: /knative/grafana
+      port: 80
+    rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      authority: grafana.knative-monitoring.svc.cluster.local
+      uri: /
+    route:
+    - destination:
+        host: grafana.knative-monitoring.svc.cluster.local
+        port:
+          number: 3000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: knative-grafana-istio-vs
+  namespace: knative-monitoring
+  #namespace: knative-monitoring
+spec:
+  hosts:
+  - "*"
+  gateways:
+  # This is the gateway shared in knative service mesh.
+  #- cluster-local-gateway.knative-serving.svc.cluster.local
+  #- knative-ingress-gateway.knative-serving.svc.cluster.local
+  - knative-grafana-istio-gateway.istio-system
+  http:
+  - match:
+    - port: 15035
+    # - method:
+    #     exact: GET
+    #   uri:
+    #     prefix: /knative/zipkin
+    # rewrite:
+    #   authority: zipkin.istio-system.svc.cluster.local
+    #   #authority: zipkin
+    #   uri: /
+    route:
+    - destination:
+        #host: zipkin.istio-system.svc.cluster.local
+        host: grafana
+        port:
+          number: 30802
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: knative-grafana-istio-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15035
+      name: http-knative-grafana
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: grafana
+  namespace: knative-monitoring
+spec:
+  host: grafana
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: prometheus-knative-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15034
+      name: http-prom
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: prometheus-knative-vs
+  namespace: knative-monitoring
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - prometheus-knative-gateway.istio-system
+  http:
+  - match:
+    - port: 15034
+    route:
+    - destination:
+        host: prometheus-system-np
+        port:
+          number: 8080
+# ---
+# apiVersion: networking.istio.io/v1alpha3
+# kind: DestinationRule
+# metadata:
+#   name: zipkin
+#   namespace: istio-system
+# spec:
+#   host: zipkin
+#   trafficPolicy:
+#     tls:
+#       mode: DISABLE
+# ---

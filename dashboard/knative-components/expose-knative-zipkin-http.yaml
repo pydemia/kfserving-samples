@@ -1,0 +1,59 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: zipkin-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15033
+      name: http-zipkin
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: zipkin-vs
+  namespace: istio-system
+  #namespace: knative-monitoring
+spec:
+  hosts:
+  - "*"
+  gateways:
+  # This is the gateway shared in knative service mesh.
+  #- cluster-local-gateway.knative-serving.svc.cluster.local
+  #- knative-ingress-gateway.knative-serving.svc.cluster.local
+  - zipkin-gateway
+  http:
+  - match:
+    - port: 15033
+    # - method:
+    #     exact: GET
+    #   uri:
+    #     prefix: /knative/zipkin
+    # rewrite:
+    #   authority: zipkin.istio-system.svc.cluster.local
+    #   #authority: zipkin
+    #   uri: /
+    route:
+    - destination:
+        #host: zipkin.istio-system.svc.cluster.local
+        host: zipkin
+        port:
+          number: 9411
+# ---
+# apiVersion: networking.istio.io/v1alpha3
+# kind: DestinationRule
+# metadata:
+#   name: zipkin
+#   namespace: istio-system
+# spec:
+#   host: zipkin
+#   trafficPolicy:
+#     tls:
+#       mode: DISABLE
+# ---

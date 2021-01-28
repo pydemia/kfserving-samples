@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: knative-monitoring
+  labels:
+    serving.knative.dev/release: "v0.15.0"
+data:
+  dashboards.yaml: |
+    - name: 'knative'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/knative
+    - name: 'knative-efficiency'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/knative-efficiency
+    - name: 'knative-reconciler'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/knative-reconciler
+    - name: 'kubernetes-deployment'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-deployment
+    - name: 'kubernetes-capacity-planning'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-capacity-planning
+    - name: 'kubernetes-cluster-health'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-cluster-health
+    - name: 'kubernetes-cluster-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-cluster-status
+    - name: 'kubernetes-control-plane-status'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-control-plane-status
+    - name: 'kubernetes-resource-requests'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-resource-requests
+    - name: 'kubernetes-nodes'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-nodes
+    - name: 'kubernetes-pods'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-pods
+    - name: 'kubernetes-statefulset'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/kubernetes-statefulset
+    - name: 'knative-serving-scaling'
+      org_id: 1
+      folder: ''
+      type: file
+      options:
+        path: /grafana-dashboard-definition/scaling
