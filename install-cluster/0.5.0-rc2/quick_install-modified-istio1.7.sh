@@ -57,10 +57,10 @@ spec:
             - port: 15020
               name: status-port
             - port: 80
-              targetPort: 80
+              #targetPort: 80
               name: http2
             - port: 443
-              targetPort: 443
+              #targetPort: 443
               name: https
             - port: 15029
               name: kiali
