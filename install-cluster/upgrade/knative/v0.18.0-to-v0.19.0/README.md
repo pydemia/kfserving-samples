@@ -30,8 +30,8 @@ mkdir -p knative-serving && \
   curl -fsSL https://github.com/knative/serving/releases/download/v0.19.0/serving-crds.yaml -O && \
   kubectl apply -f serving-crds.yaml &&
   curl -fsSL https://github.com/knative/serving/releases/download/v0.19.0/serving-core.yaml -O && \
-  curl -fsSL https://github.com/knative/net-istio/releases/download/v0.19.0/release.yaml -O && \
-  curl -fsSL https://github.com/knative/net-certmanager/releases/download/v0.19.0/release.yaml -O && \
+curl -fsSL https://github.com/knative/net-istio/releases/download/v0.19.0/release.yaml -o net-istio-release.yaml && \
+  curl -fsSL https://github.com/knative/net-certmanager/releases/download/v0.19.0/release.yaml -o net-certmanager-release.yaml && \
   cd .. && kubectl apply -f knative-serving
 
 # knative-eventing
@@ -70,4 +70,7 @@ curl -fsSL https://github.com/knative/serving/releases/download/v0.19.0/serving-
 kubectl delete -f eventing-pre-install-jobs.yaml && \
 kubectl delete -f serving-post-install-jobs.yaml
 # kubectl delete -f eventing-post-install-jobs.yaml
+
+kubectl -n knative-eventing delete job storage-version-migration
+kubectl -n knative-eventing delete job storage-version-migration-eventing
 ```

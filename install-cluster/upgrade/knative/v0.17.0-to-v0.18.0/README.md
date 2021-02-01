@@ -25,18 +25,17 @@ curl -fsSL https://github.com/knative/eventing/releases/download/v0.18.0/eventin
 
 ```bash
 # knative-serving
-mkdir -p knative-serving && \
-  cd knative-serving && \
+mkdir -p ./knative-serving && \
+  cd ./knative-serving && \
   curl -fsSL https://github.com/knative/serving/releases/download/v0.18.0/serving-crds.yaml -O && \
-  kubectl apply -f serving-crds.yaml &&
   curl -fsSL https://github.com/knative/serving/releases/download/v0.18.0/serving-core.yaml -O && \
-  curl -fsSL https://github.com/knative/net-istio/releases/download/v0.18.0/release.yaml -O && \
-  curl -fsSL https://github.com/knative/net-certmanager/releases/download/v0.18.0/release.yaml -O && \
+  curl -fsSL https://github.com/knative/net-istio/releases/download/v0.18.0/release.yaml -o net-istio-release.yaml && \
+  curl -fsSL https://github.com/knative/net-certmanager/releases/download/v0.18.0/release.yaml -o net-certmanager-release.yaml && \
   cd .. && kubectl apply -f knative-serving
 
 # knative-eventing
-mkdir -p knative-eventing && \
-  cd knative-eventing && \
+mkdir -p ./knative-eventing && \
+  cd ./knative-eventing && \
   curl -fsSL https://github.com/knative/eventing/releases/download/v0.18.0/eventing-crds.yaml -O && \
   curl -fsSL https://github.com/knative/eventing/releases/download/v0.18.0/eventing-core.yaml -O && \
   curl -fsSL https://github.com/knative/eventing/releases/download/v0.18.0/in-memory-channel.yaml -O && \

@@ -24,7 +24,7 @@ spec:
     global:
       proxy:
         autoInject: enabled
-      useMCP: true
+      useMCP: false
       # The third-party-jwt is not enabled on all k8s.
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
@@ -57,10 +57,10 @@ spec:
             - port: 15020
               name: status-port
             - port: 80
-              targetPort: 8080
+              targetPort: 80
               name: http2
             - port: 443
-              targetPort: 8443
+              targetPort: 443
               name: https
             - port: 15029
               name: kiali
@@ -74,7 +74,14 @@ spec:
               name: knative-grafana
 EOF
 
-istioctl install -f istio-minimal-operator-1.7.yaml
+# READ: https://istio.io/latest/news/releases/1.7.x/announcing-1.7/upgrade-notes/#gateways-run-as-non-root
+istioctl install -f istio-minimal-operator-1.7.yaml \
+  --set values.gateways.istio-ingressgateway.runAsRoot=true
+
+istioctl install -f https://raw.githubusercontent.com/istio/istio/master/samples/addons/grafana.yaml
+istioctl install -f https://raw.githubusercontent.com/istio/istio/master/samples/addons/jaeger.yaml
+istioctl install -f https://raw.githubusercontent.com/istio/istio/master/samples/addons/kiali.yaml
+istioctl install -f https://raw.githubusercontent.com/istio/istio/master/samples/addons/prometheus.yaml
 
 # Install Knative
 kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml
