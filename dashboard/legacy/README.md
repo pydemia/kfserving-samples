@@ -198,14 +198,13 @@ data:
 $ istioctl manifest apply --set values.kiali.enabled=true \
   --set values.grafana.enabled=true \
   --set "values.kiali.dashboard.grafanaURL=http://grafana:3000"
-
-istioctl manifest apply --set values.kiali.enabled=true \
 ```
 
 Generating a service graph
 ```sh
 $ kubectl -n istio-system get svc kiali
 ```
+
 
 * `bash`
 ```bash
@@ -223,14 +222,10 @@ KIALI_USERNAME=$(read '?Kiali Username: ' uval && echo -n $uval | base64) && \
 
 Then, create a secret:
 ```sh
-$ NAMESPACE=istio-system && \
-  kubectl create namespace $NAMESPACE
+# $ NAMESPACE=istio-system && \
+#   kubectl create namespace $NAMESPACE
 
-$ USERNAME="admin" && \
-  PASSWORD="admin" && \
-  KIALI_USERNAME="$(echo -n $USERNAME | base64)" && \
-  KIALI_PASSPHRASE="$(echo -n $PASSWORD | base64)" && \
-  NAMESPACE=istio-system && \
+$ NAMESPACE=istio-system && \
   cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Secret
@@ -265,6 +260,24 @@ kubectl -n istio-system rollout restart deployment kiali
 * `kiali`: --set values.kiali.enabled=true
 * `prometheus`: --set values.prometheus.enabled=true
 * `tracing`: --set values.tracing.enabled=true
+
+
+```bash
+# 1.7
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/grafana.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/jaeger.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/kiali.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/prometheus.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/extras/zipkin.yaml
+
+# 1.8
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/grafana.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/jaeger.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/kiali.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/prometheus.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.8/samples/addons/extras/zipkin.yaml
+
+```
 
 ```sh
 # cd prometheus-and-grafana
@@ -540,12 +553,12 @@ $ kubectl apply -f knative-components/expose-knative-zipkin-http.yaml
 
 
 목록:
-| namespace | service | address |
-| :------------ | :------ | :------ |
-| istio-system | kiali | <http://kfs.pydemia.org:15029> |
-| istio-system | prometheus | <http://kfs.pydemia.org:15030> |
-| istio-system | grafana | <http://kfs.pydemia.org:15031> |
-| istio-system | tracing | <http://kfs.pydemia.org:15032> |
-| istio-system | zipkin | <http://kfs.pydemia.org:15033> |
-| knative-monitoring | grafana | <http://kfs.pydemia.org/knative/grafana> |
-| knative-monitoring | prometheus-system-np | <http://kfs.pydemia.org:15034> |
+| namespace          | service              | address                                  |
+|--------------------|----------------------|------------------------------------------|
+| istio-system       | kiali                | <http://kfs.pydemia.org:15029>           |
+| istio-system       | prometheus           | <http://kfs.pydemia.org:15030>           |
+| istio-system       | grafana              | <http://kfs.pydemia.org:15031>           |
+| istio-system       | tracing              | <http://kfs.pydemia.org:15032>           |
+| istio-system       | zipkin               | <http://kfs.pydemia.org:15033>           |
+| knative-monitoring | grafana              | <http://kfs.pydemia.org/knative/grafana> |
+| knative-monitoring | prometheus-system-np | <http://kfs.pydemia.org:15034>           |
