@@ -188,6 +188,9 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
+            - port: 15033
+              name: istio-zipkin
+              targetPort: 15033
             - port: 15035
               name: knative-grafana
               targetPort: 15035
@@ -263,6 +266,9 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
+            - port: 15033
+              name: istio-zipkin
+              targetPort: 15033
             - port: 15035
               name: knative-grafana
               targetPort: 15035
@@ -330,6 +336,9 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
+            - port: 15033
+              name: istio-zipkin
+              targetPort: 15033
             - port: 15035
               name: knative-grafana
               targetPort: 15035
@@ -442,17 +451,39 @@ function install_istio () {
   ${ISTIO_INSTALL_COMMAND} -f ./istio/istio-operator.yaml \
     --set values.gateways.istio-ingressgateway.runAsRoot=true
   echo ''
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics/prometheus.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/prometheus.yaml
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics/grafana.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/grafana.yaml
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics/kiali-crd.yaml
+
+  # as default, ConfigMap prometheus, istio-grafana-dashboards, istio-services-grafana-dashboards created in default(not specified in yaml).
+  ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/prometheus.yaml || ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/prometheus.yaml
+  ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/grafana.yaml || ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/grafana.yaml
+  ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/kiali-crd.yaml
   # https://istio.io/v1.7/docs/ops/integrations/kiali/
   # Guide says: 
   # If there are errors trying to install the addons, try running the command again.
   # There may be some timing issues which will be resolved when the command is run again.
   # Error Example> error: unable to recognize "./istio-metrics/kiali.yaml": no matches for kind "Kiali" in version "kiali.io/v1alpha1"
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics/kiali.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/kiali.yaml
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics/jaeger.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/jaeger.yaml
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics/zipkin.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/zipkin.yaml
+  ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/kiali.yaml || ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/kiali.yaml
+
+  echo "link 1: https://github.com/kiali/kiali/issues/3419#issuecomment-724608814"
+  echo "link 2: https://github.com/kiali/kiali/issues/2893"
+  echo "According to the above messages in kiali/kiali github,"
+  echo "REMOVE - "-v", - "3" in kiali command in the deployment container template, which is created by kiali-operator..."
+  ${KUBECTL_COMMAND} -n istio-system patch deployment kiali \
+    --type=json -p='
+[
+    {
+        "op": "replace",
+        "path": "/spec/template/spec/containers/0/command",
+        "value": [
+            "/opt/kiali/kiali",
+            "-config",
+            "/kiali-configuration/config.yaml"
+        ]
+    }
+]'
+
+  # service/tracing will be overrided.
+  ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/zipkin.yaml || ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/zipkin.yaml
+  ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/jaeger.yaml || ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/jaeger.yaml
 }
 
 
@@ -526,6 +557,24 @@ function install_knative () {
   ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-kafka-controller.yaml
   ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-kafka-broker.yaml
   
+  # link: https://knative.dev/docs/serving/accessing-traces/
+  # Knative-Accessing request traces
+  ${KUBECTL_COMMAND} -n knative-serving patch configmap config-tracing \
+    --type=strategic -p='
+data:
+  backend: "zipkin"
+  zipkin-endpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans"
+  sample-rate: "1"
+'
+  # link: https://knative.dev/docs/eventing/accessing-traces/
+  # Knative-Accessing CloudEvent traces
+  ${KUBECTL_COMMAND} -n knative-eventing patch configmap config-tracing \
+    --type=strategic -p='
+data:
+  backend: "zipkin"
+  zipkin-endpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans"
+  sample-rate: "1"
+'
   if [[ -f "./knative-eventing/eventing-kafka-sink.yaml" ]]; then
     ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-kafka-sink.yaml
   fi

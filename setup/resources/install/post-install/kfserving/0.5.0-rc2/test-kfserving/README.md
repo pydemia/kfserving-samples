@@ -4,7 +4,7 @@
 
 ```bash
 kubectl create ns test
-kubectl apply -f ./test/flower-sample.yaml
+kubectl apply -f ./flower-sample.yaml
 ```
 
 ```bash
@@ -29,14 +29,14 @@ HOSTNAME=$(kubectl get inferenceservice flower-sample -n test -o jsonpath='{.sta
 curl -v POST "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/flower-sample:predict" \
 -H "Host: ${HOSTNAME}" \
 -H 'Content-Type: application/json' \
--d '@./test/flower-input.json'
+-d '@./flower-input.json'
 ```
 
 ```bash
 # API_VERSION=v1alpha2
 API_VERSION=v1beta1
 kubectl create namespace kfserving-test
-kubectl apply -f ./test/sklearn-iris.yaml -n kfserving-test
+kubectl apply -f ./sklearn-iris.yaml -n kfserving-test
 
 kubectl get inferenceservices sklearn-iris -n kfserving-test
 
@@ -47,5 +47,5 @@ SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -n kfserving-test -
 
 curl -fsSL "https://raw.githubusercontent.com/kubeflow/kfserving/master/docs/samples/${API_VERSION}/sklearn/iris-input.json" -o ./test/iris-input.json
 
-curl -v -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict" -d @./test/iris-input.json
+curl -v -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/sklearn-iris:predict" -d @./iris-input.json
 ```
