@@ -109,7 +109,8 @@ gcloud beta container clusters create \
     --metadata=$METADATA \
     --labels=$LABELS \
     --addons HorizontalPodAutoscaling,HttpLoadBalancing \
-    --scopes=$SCOPES
+    --scopes=$SCOPES \
+    --enable-stackdriver-kubernetes
 
 
 # --cluster-ipv4-cidr=$CLUSTER_IPV4_CIDR \

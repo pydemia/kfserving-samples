@@ -6,11 +6,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+ISTIO_PROFILE="${ISTIO_PROFILE:-basic}"
 
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.1.0}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.20.0}"
-ISTIO_VERSION="${ISTIO_VERSION:-1.7.7}"
-KNATIVE_VERSION="${KNATIVE_VERSION:-v0.20.0}"
+ISTIO_VERSION="${ISTIO_VERSION:-1.6.13}"  # 1.7.x or 1.6.x 1.7.7, 1.6.13
+KNATIVE_VERSION="${KNATIVE_VERSION:-v0.18.3}"
 KFSERVING_VERSION="${KFSERVING_VERSION:-v0.5.0-rc2}"
 
 
@@ -85,17 +86,37 @@ function set_istioctl () {
   ISTIO_VERSION=$(get_version_num "$1")
   echo "Downloading istioctl=${ISTIO_VERSION}..."
   ${DOWNLOAD_COMMAND} https://git.io/getLatestIstio | ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh -
-  chmod +x ./istio-${ISTIO_VERSION}/bin/istioctl
+  mv ./istio-${ISTIO_VERSION} ./istioctl
+  chmod +x ./istioctl/bin/istioctl
   mkdir -p $HOME/.local/bin
   export PATH="$HOME/.local/bin:${PATH}"
-  mv istio-${ISTIO_VERSION}/bin/istioctl $HOME/.local/bin/istioctl
-  rm -rf ./istio-${ISTIO_VERSION}
+  # cp -f istioctl/bin/istioctl $HOME/.local/bin/istioctl
+  mv istioctl/bin/istioctl $HOME/.local/bin/istioctl
+  rm -rf ./istioctl
   echo "'istioctl' is downloaded: `which istioctl`"
+}
+
+
+function get_certmanager_yaml () {
+  CM_VERSION=$(get_version_num "$1")
+  rm -rf ./cert-manager && \
+  mkdir -p ./cert-manager && \
+    cd ./cert-manager && \
+    ${DOWNLOAD_COMMAND} https://github.com/jetstack/cert-manager/releases/download/v${CM_VERSION}/cert-manager.yaml -O && \
+    cd ..
+    echo "'cert-manager' manifests are downloaded."
+    echo -e "$(ls -AR ./cert-manager)\n"
+}
+
+function install_certmanager () {
+  ${KUBECTL_COMMAND} apply -f ./cert-manager
+  ${KUBECTL_COMMAND} wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
 }
 
 
 function get_istio_yaml () {
   # 'basic', 'auto-injected' or ${profile_name}
+  rm -rf ./istio && \
   mkdir -p ./istio
   if [[ "basic" == "$1" ]]; then
     echo "Generating istio operator for 'kfserving basic'..."
@@ -107,6 +128,8 @@ metadata:
   labels:
     istio-injection: disabled
 ---
+EOF
+    cat << EOF > ./istio/istio-operator.yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -122,14 +145,14 @@ spec:
   addonComponents:
     pilot:
       enabled: true
-    tracing:
-      enabled: true
-    kiali:
-      enabled: true
-    prometheus:
-      enabled: true
-    grafana:
-      enabled: true
+    # tracing:
+    #   enabled: true
+    # kiali:
+    #   enabled: true
+    # prometheus:
+    #   enabled: true
+    # grafana:
+    #   enabled: true
 
   components:
     ingressGateways:
@@ -146,34 +169,42 @@ spec:
             ports:
             - port: 15020
               name: status-port
+              targetPort: 15020
             - port: 80
-              #targetPort: 80
               name: http2
+              targetPort: 80
             - port: 443
-              #targetPort: 443
               name: https
+              targetPort: 443
             - port: 15029
-              name: kiali
+              name: istio-kiali
+              targetPort: 15029
             - port: 15030
-              name: prometheus
+              name: istio-prometheus
+              targetPort: 15030
             - port: 15031
-              name: grafana
+              name: istio-grafana
+              targetPort: 15031
             - port: 15032
-              name: tracing
+              name: istio-tracing
+              targetPort: 15032
             - port: 15035
               name: knative-grafana
+              targetPort: 15035
 EOF
     echo "'istio/istio-core.yaml' is generated."
   elif [[ "auto-injected" == "$1" ]]; then
-    echo "Generating istio operator for 'kfserving basic'..."
+    echo "Generating istio operator for 'kfserving auto-injection'..."
     cat << EOF > ./istio/istio-core.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system
-  labels:
-    istio-injection: disabled
+  # labels:
+  #   istio-injection: disabled
 ---
+EOF
+    cat << EOF > ./istio/istio-operator.yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -189,14 +220,14 @@ spec:
   addonComponents:
     pilot:
       enabled: true
-    tracing:
-      enabled: true
-    kiali:
-      enabled: true
-    prometheus:
-      enabled: true
-    grafana:
-      enabled: true
+    # tracing:
+    #   enabled: true
+    # kiali:
+    #   enabled: true
+    # prometheus:
+    #   enabled: true
+    # grafana:
+    #   enabled: true
 
   components:
     ingressGateways:
@@ -213,22 +244,28 @@ spec:
             ports:
             - port: 15020
               name: status-port
+              targetPort: 15020
             - port: 80
-              #targetPort: 80
               name: http2
+              targetPort: 80
             - port: 443
-              #targetPort: 443
               name: https
+              targetPort: 443
             - port: 15029
-              name: kiali
+              name: istio-kiali
+              targetPort: 15029
             - port: 15030
-              name: prometheus
+              name: istio-prometheus
+              targetPort: 15030
             - port: 15031
-              name: grafana
+              name: istio-grafana
+              targetPort: 15031
             - port: 15032
-              name: tracing
+              name: istio-tracing
+              targetPort: 15032
             - port: 15035
               name: knative-grafana
+              targetPort: 15035
 EOF
     echo "'istio/istio-core.yaml' is generated."
   else
@@ -238,9 +275,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: istio-system
-  labels:
-    istio-injection: disabled
+  # labels:
+  #   istio-injection: disabled
 ---
+EOF
+    cat << EOF > ./istio/istio-operator.yaml
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
@@ -248,7 +287,7 @@ spec:
     global:
       proxy:
         autoInject: enabled
-      useMCP: true
+      useMCP: false
       # The third-party-jwt is not enabled on all k8s.
       # See: https://istio.io/docs/ops/best-practices/security/#configure-third-party-service-account-tokens
       jwtPolicy: first-party-jwt
@@ -272,28 +311,34 @@ spec:
             ports:
             - port: 15020
               name: status-port
+              targetPort: 15020
             - port: 80
-              #targetPort: 80
               name: http2
+              targetPort: 80
             - port: 443
-              #targetPort: 443
               name: https
+              targetPort: 443
             - port: 15029
-              name: kiali
+              name: istio-kiali
+              targetPort: 15029
             - port: 15030
-              name: prometheus
+              name: istio-prometheus
+              targetPort: 15030
             - port: 15031
-              name: grafana
+              name: istio-grafana
+              targetPort: 15031
             - port: 15032
-              name: tracing
+              name: istio-tracing
+              targetPort: 15032
             - port: 15035
               name: knative-grafana
+              targetPort: 15035
 EOF
     istioctl manifest generate \
-      -f ./istio/istio-core.yaml \
+      -f ./istio/istio-operator.yaml \
       --set profile="$1" \
-      >> ./istio/istio-core.yaml
-    echo "'istio-core.yaml' is generated."
+      >> ./istio/istio-operator.yaml
+    echo "'istio-core.yaml', 'istio-operator.yaml' is generated."
   fi
   echo -e "$(ls -AR ./istio)\n"
 }
@@ -301,10 +346,74 @@ EOF
 function get_istio_metrics_yaml () {
   ISTIO_VERSION=$(get_version_num "$1")
   ISTIO_RELEASE=$(trunc_patchnum ${ISTIO_VERSION})
-  mkdir -p ./istio-metrics
+  rm -rf ./istio-metrics && \
+  mkdir -p ./istio-metrics && \
   cd ./istio-metrics && \
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/grafana.yaml -O && \
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/jaeger.yaml -O && \
+  if [ $(version ${ISTIO_RELEASE}) -ge $(version "0.19") ]; then
+    cat << EOF > ./kiali-crd.yaml
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: monitoringdashboards.monitoring.kiali.io
+spec:
+  group: monitoring.kiali.io
+  names:
+    kind: MonitoringDashboard
+    listKind: MonitoringDashboardList
+    plural: monitoringdashboards
+    singular: monitoringdashboard
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+...
+EOF
+  else
+    cat << EOF > ./kiali-crd.yaml
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: monitoringdashboards.monitoring.kiali.io
+  labels:
+    app: kiali
+    version: v1.18
+spec:
+  group: monitoring.kiali.io
+  names:
+    kind: MonitoringDashboard
+    listKind: MonitoringDashboardList
+    plural: monitoringdashboards
+    singular: monitoringdashboard
+  scope: Namespaced
+  version: v1alpha1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kialis.kiali.io
+  labels:
+    app: kiali-operator
+    version: v1.18
+spec:
+  group: kiali.io
+  names:
+    kind: Kiali
+    listKind: KialiList
+    plural: kialis
+    singular: kiali
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+EOF
+  fi
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/kiali.yaml -O && \
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/prometheus.yaml -O && \
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/extras/zipkin.yaml -O && \
@@ -313,8 +422,44 @@ function get_istio_metrics_yaml () {
   echo -e "$(ls -AR ./istio-metrics)\n"
 }
 
+
+function install_istio () {
+  # ISTIO_VERSION=$(get_version_num "$1")
+  # ISTIO_RELEASE=$(trunc_patchnum ${ISTIO_VERSION})
+
+  ISTIO_VERSION=$(istioctl version --remote=false)
+  ISTIO_RELEASE=$(trunc_patchnum ${ISTIO_VERSION})
+  
+  ISTIO_INSTALL_COMMAND="istioctl manifest apply "
+  if [ $(version "${ISTIO_RELEASE}") -ge $(version "1.6") ]; then
+    # istio >= 1.6
+    ISTIO_INSTALL_COMMAND="istioctl install "
+  else
+    # istio < 1.6
+    ISTIO_INSTALL_COMMAND="istioctl manifest apply "
+  fi
+  ${KUBECTL_COMMAND} apply -f ./istio/istio-core.yaml
+  ${ISTIO_INSTALL_COMMAND} -f ./istio/istio-operator.yaml \
+    --set values.gateways.istio-ingressgateway.runAsRoot=true
+  echo ''
+  ${KUBECTL_COMMAND} apply -f ./istio-metrics/prometheus.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/prometheus.yaml
+  ${KUBECTL_COMMAND} apply -f ./istio-metrics/grafana.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/grafana.yaml
+  ${KUBECTL_COMMAND} apply -f ./istio-metrics/kiali-crd.yaml
+  # https://istio.io/v1.7/docs/ops/integrations/kiali/
+  # Guide says: 
+  # If there are errors trying to install the addons, try running the command again.
+  # There may be some timing issues which will be resolved when the command is run again.
+  # Error Example> error: unable to recognize "./istio-metrics/kiali.yaml": no matches for kind "Kiali" in version "kiali.io/v1alpha1"
+  ${KUBECTL_COMMAND} apply -f ./istio-metrics/kiali.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/kiali.yaml
+  ${KUBECTL_COMMAND} apply -f ./istio-metrics/jaeger.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/jaeger.yaml
+  ${KUBECTL_COMMAND} apply -f ./istio-metrics/zipkin.yaml || ${KUBECTL_COMMAND} apply -f ./istio-metrics/zipkin.yaml
+}
+
+
 function get_knative_yaml () {
-  KNATIVE_VERSION="v$(get_version_num "$1")"
+  KNATIVE_VERSION="v$(trunc_patchnum $(get_version_num "$1")).0"  # if v0.18.3, -> v0.18.0
+  KNATIVE_RELEASE="$(trunc_patchnum $(get_version_num "$1"))"  # 0.18
+  rm -rf ./knative-serving && \
   mkdir -p ./knative-serving && \
   cd ./knative-serving && \
   ${DOWNLOAD_COMMAND} https://github.com/knative/serving/releases/download/${KNATIVE_VERSION}/serving-crds.yaml -O && \
@@ -325,75 +470,98 @@ function get_knative_yaml () {
   echo "'knative-serving' manifests are downloaded."
   echo -e "$(ls -AR ./knative-serving)\n"
 
+  ${DOWNLOAD_COMMAND} "https://knative.dev/v${KNATIVE_RELEASE}-docs/eventing/samples/kafka/kafka_setup.sh" -O
+  rm -rf ./knative-eventing && \
   mkdir -p ./knative-eventing && \
     cd ./knative-eventing && \
     ${DOWNLOAD_COMMAND} https://github.com/knative/eventing/releases/download/${KNATIVE_VERSION}/eventing-crds.yaml -O && \
     ${DOWNLOAD_COMMAND} https://github.com/knative/eventing/releases/download/${KNATIVE_VERSION}/eventing-core.yaml -O && \
-    ${DOWNLOAD_COMMAND} https://github.com/knative/eventing/releases/download/${KNATIVE_VERSION}/in-memory-channel.yaml -O && \
-    ${DOWNLOAD_COMMAND} "https://github.com/knative-sandbox/eventing-kafka/releases/download/${KNATIVE_VERSION}/channel-consolidated.yaml" \
-    | sed 's/REPLACE_WITH_CLUSTER_URL/my-cluster-kafka-bootstrap.kafka:9092/' > channel-consolidated.yaml && \
+    # ${DOWNLOAD_COMMAND} https://github.com/knative/eventing/releases/download/${KNATIVE_VERSION}/in-memory-channel.yaml -O && \
+
+    KAFKA_CHANNEL_URL=""
+    if [ $(version ${KNATIVE_RELEASE}) -ge $(version "0.19") ]; then
+      KAFKA_CHANNEL_URL="https://github.com/knative-sandbox/eventing-kafka/releases/download/${KNATIVE_VERSION}/channel-consolidated.yaml"
+    else
+      KAFKA_CHANNEL_URL="https://github.com/knative/eventing-contrib/releases/download/${KNATIVE_VERSION}/kafka-channel.yaml"
+    fi
+    cat << EOF > ./kafka-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka
+EOF
+    strimzi_version=`curl -s https://github.com/strimzi/strimzi-kafka-operator/releases/latest |  awk -F 'tag/' '{print $2}' | awk -F '"' '{print $1}' 2>/dev/null`
+    ${DOWNLOAD_COMMAND} "https://github.com/strimzi/strimzi-kafka-operator/releases/download/${strimzi_version}/strimzi-cluster-operator-${strimzi_version}.yaml" \
+    | sed 's/namespace: .*/namespace: kafka/' > kafka-operator.yaml && \
+    ${DOWNLOAD_COMMAND} "https://raw.githubusercontent.com/strimzi/strimzi-kafka-operator/${strimzi_version}/examples/kafka/kafka-ephemeral-single.yaml" -O && \
+    ${DOWNLOAD_COMMAND} $KAFKA_CHANNEL_URL \
+    | sed 's/REPLACE_WITH_CLUSTER_URL/my-cluster-kafka-bootstrap.kafka:9092/' > kafka-channel.yaml && \
     ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka-broker/releases/download/${KNATIVE_VERSION}/eventing-kafka-controller.yaml -O && \
-    ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka-broker/releases/download/${KNATIVE_VERSION}/eventing-kafka-broker.yaml -O && \
-    ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka-broker/releases/download/${KNATIVE_VERSION}/eventing-kafka-sink.yaml -O && \
-    ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka/releases/download/${KNATIVE_VERSION}/source.yaml -O && \
+    ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka-broker/releases/download/${KNATIVE_VERSION}/eventing-kafka-broker.yaml -O
+
+    if [ $(version ${KNATIVE_RELEASE}) -ge $(version "0.20") ]; then
+      ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka-broker/releases/download/${KNATIVE_VERSION}/eventing-kafka-sink.yaml -O && \
+      ${DOWNLOAD_COMMAND} https://github.com/knative-sandbox/eventing-kafka/releases/download/${KNATIVE_VERSION}/source.yaml -O
+    fi
+
     cd ..
     echo "'knative-eventing' manifests are downloaded."
     echo -e "$(ls -AR ./knative-eventing)\n"
 }
 
-function get_certmanager_yaml () {
-  CM_VERSION=$(get_version_num "$1")
-  mkdir -p ./cert-manager && \
-    cd ./cert-manager && \
-    ${DOWNLOAD_COMMAND} https://github.com/jetstack/cert-manager/releases/download/v${CM_VERSION}/cert-manager.yaml -O && \
-    cd ..
-    echo "'cert-manager' manifests are downloaded."
-    echo -e "$(ls -AR ./cert-manager)\n"
-}
-
-function install_certmanager () {
-  ${KUBECTL_COMMAND} apply -f ./cert-manager > /dev/tty
-  ${KUBECTL_COMMAND} wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager > /dev/tty
-}
-
-
-function install_istio () {
-  istioctl install \
-    -f ./istio/istio-core.yaml \
-    --set values.gateways.istio-ingressgateway.runAsRoot=true > /dev/tty
-  ${KUBECTL_COMMAND} apply -f ./istio-metrics > /dev/tty
-}
-
 
 function install_knative () {
-  ${KUBECTL_COMMAND} apply -f ./knative-serving > /dev/tty
-  ${KUBECTL_COMMAND} apply -f ./knative-eventing > /dev/tty
+  ${KUBECTL_COMMAND} apply -f ./knative-serving/serving-crds.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-serving/serving-core.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-serving/net-certmanager-release.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-serving/net-istio-release.yaml
+
+  ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-crds.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-core.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-eventing/kafka-namespace.yaml
+  ${KUBECTL_COMMAND} -n kafka apply -f ./knative-eventing/kafka-operator.yaml
+  ${KUBECTL_COMMAND} -n kafka apply -f ./knative-eventing/kafka-ephemeral-single.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-eventing/kafka-channel.yaml
+  # ${KUBECTL_COMMAND} apply -f ./knative-eventing/in-memory-channel.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-kafka-controller.yaml
+  ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-kafka-broker.yaml
+  
+  if [[ -f "./knative-eventing/eventing-kafka-sink.yaml" ]]; then
+    ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-kafka-sink.yaml
+  fi
+  if [[ -f "./knative-eventing/source.yaml" ]]; then
+    ${KUBECTL_COMMAND} apply -f ./knative-eventing/source.yaml
+  fi
 }
 
 
 function get_kfserving_yaml () {
   KFSERVING_VERSION="v$(get_version_num "$1")"
-  ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/pydemia/kfserving/master/install/${KFSERVING_VERSION}/kfserving.yaml -O > /dev/tty
+  ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/pydemia/kfserving/master/install/${KFSERVING_VERSION}/kfserving.yaml -O 
 }
 
 
 function install_kfserving () {
   K8S_MINOR=$(${KUBECTL_COMMAND} version | perl -ne 'print $1."\n" if /Server Version:.*?Minor:"(\d+)"/')
   if [[ $K8S_MINOR -lt 16 ]]; then
-    ${KUBECTL_COMMAND} apply -f kfserving.yaml --validate=false > /dev/tty
+    ${KUBECTL_COMMAND} apply -f kfserving.yaml --validate=false 
   else
-    ${KUBECTL_COMMAND} apply -f kfserving.yaml > /dev/tty
+    ${KUBECTL_COMMAND} apply -f kfserving.yaml
   fi
 }
 
 
 function setup () {
 
+  printf '%*s\n' 32 "" | tr ' ' '='
+  printf 'KFServing Installer: setup'
+  printf '\n'
+  printf '%*s\n' 32 "" | tr ' ' '='
   printf '\n'
   printf '%*s\n' 32 "" | tr ' ' '#'
   printf '%-15s: %-15s\n' "cert-manager" $(get_version_num $CERT_MANAGER_VERSION)
   printf '%-15s: %-15s\n' "kubectl" $(get_version_num $KUBECTL_VERSION)
-  printf '%-15s: %-15s\n' "istio" $(get_version_num $ISTIO_VERSION)
+  printf '%-15s: %-15s\n' "istio" "$(get_version_num $ISTIO_VERSION): profile=${ISTIO_PROFILE}"
   printf '%-15s: %-15s\n' "knative" $(get_version_num $KNATIVE_VERSION)
   printf '%-15s: %-15s\n' "kfserving" $(get_version_num $KFSERVING_VERSION)
   printf '%*s\n' 32 "" | tr ' ' '#'
@@ -404,7 +572,7 @@ function setup () {
   set_istioctl $ISTIO_VERSION
 
   get_certmanager_yaml $CERT_MANAGER_VERSION
-  get_istio_yaml demo # 'basic', 'auto-injected' or ${profile_name}
+  get_istio_yaml $ISTIO_PROFILE # 'basic', 'auto-injected' or ${profile_name}(ex. demo, minimal)
   get_istio_metrics_yaml $ISTIO_VERSION
   get_knative_yaml $KNATIVE_VERSION
   get_kfserving_yaml $KFSERVING_VERSION
@@ -412,10 +580,24 @@ function setup () {
 }
 
 function install () {
+  printf '%*s\n' 32 "" | tr ' ' '='
+  printf 'KFServing Installer: install'
+  printf '\n'
+  printf '%*s\n' 32 "" | tr ' ' '='
+  printf '\n'
+
   install_certmanager
   install_istio
   install_knative
   install_kfserving
 }
+
+
+# function uninstall () {
+#   echo "Not implemented yet."
+#   # istio < 1.7
+#   # istioctl manifest generate <your original installation options> | kubectl delete -f -
+#   istioctl x uninstall --purge
+# }
 
 "$@"
