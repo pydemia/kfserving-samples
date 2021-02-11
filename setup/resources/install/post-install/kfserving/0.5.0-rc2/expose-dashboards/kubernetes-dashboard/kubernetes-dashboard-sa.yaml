@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin
+  namespace: kubernetes-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-dashboard
+  namespace: istio-system
+spec:
+  # selector:
+  #   app: kubernetes-dashboard
+  type: ExternalName
+  externalName: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
+  ports:
+  - port: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+spec:
+  hosts:
+  - "app.airuntime.com"
+  - "stg.airuntime.com"
+  gateways:
+  - service-tls-gateway.istio-system
+  http:
+  - match:
+    # - method:
+    #     exact: GET
+    - uri:
+        prefix: /dashboard
+      port: 443
+    # rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      # authority: grafana.knative-monitoring.svc.cluster.local
+      # uri: /
+    route:
+    - destination:
+        host: kubernetes-dashboard
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: kubernetes-dashboard
+  namespace: kubernetes-dashboard
+spec:
+  host: kubernetes-dashboard
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---

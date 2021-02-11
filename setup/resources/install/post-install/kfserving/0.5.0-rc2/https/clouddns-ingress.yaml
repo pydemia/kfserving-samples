@@ -1,0 +1,90 @@
+apiVersion: cert-manager.io/v1  # >= v0.11
+kind: Issuer
+metadata:
+  name: letsencrypt-dns-prod
+  namespace: istio-system
+spec:
+  acme:
+    email: yj.kim1@sk.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource used to store the account's private key.
+      # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
+      name: letsencrypt-dns-prod
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - dns01:
+        cloudDNS:
+          # The ID of the GCP project
+          project: ds-ai-platform
+          # This is the secret used to access the service account
+          serviceAccountSecretRef:
+            name: airuntime-dns01-solver-sa
+            key: key.json
+---
+# apiVersion: cert-manager.io/v1alpha2
+# kind: Certificate
+# metadata:
+#   name: nginx-tls
+#   namespace: istio-system
+# spec:
+#   secretName: nginx-tls
+#   issuerRef:
+#     name: letsencrypt
+#     kind: ClusterIssuer
+#   dnsNames:
+#     - "*.pydemia.org"
+#   acme:
+#     config:
+#       - dns01:
+#           provider: route53
+#         domains:
+#           - "*.pydemia.org"
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: example-com
+#   namespace: istio-system
+# spec:
+#   secretName: example-com-tls
+#   issuerRef:
+#     # The issuer created previously
+#     kind: Issuer
+#     name: letsencrypt-dns-prod
+#   dnsNames:
+#   - example.com
+#   - www.example.com
+# ---
+# apiVersion: networking.k8s.io/v1  >= k8s 1.16
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-dns-prod
+  namespace: istio-system
+  annotations:
+    # cert-manager.io/issuer  # >= v0.11
+    cert-manager.io/issuer: letsencrypt-dns-prod
+    # cert-manager.io/cluster-issuer: letsencrypt-istio-prod
+    # kubernetes.io/ingress.class: istio
+spec:
+  tls:  # < placing a host in the TLS config will indicate a cert should be created
+  - hosts:
+    - dev2.airuntime.com
+    secretName: ingress-dns-tls-prod  # < cert-manager will store the created certificate in this secret.
+    # `kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls-prod`
+  rules:
+  - host: dev2.airuntime.com  # www.example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: istio-ingressgateway
+          servicePort: 443
+      - path: /kiali-ingress
+        backend:
+          serviceName: kiali
+          servicePort: 20001
+          # serviceName: istio-ingressgateway
+          # servicePort: 80

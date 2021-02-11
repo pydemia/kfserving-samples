@@ -1,5 +1,7 @@
 # User-defined
 
+# DNS01 solver key
+key.json
 istioctl
 *.pem
 *crt

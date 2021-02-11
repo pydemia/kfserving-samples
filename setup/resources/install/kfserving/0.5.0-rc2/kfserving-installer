@@ -6,7 +6,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-ISTIO_PROFILE="${ISTIO_PROFILE:-basic}"
+ISTIO_PROFILE="${ISTIO_PROFILE:-autoinjected}"
 
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.1.0}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.20.0}"
@@ -115,7 +115,7 @@ function install_certmanager () {
 
 
 function get_istio_yaml () {
-  # 'basic', 'auto-injected' or ${profile_name}
+  # 'basic', 'autoinjected' or ${profile_name}
   rm -rf ./istio && \
   mkdir -p ./istio
   if [[ "basic" == "$1" ]]; then
@@ -188,15 +188,9 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
-            - port: 15033
-              name: istio-zipkin
-              targetPort: 15033
-            - port: 15035
-              name: knative-grafana
-              targetPort: 15035
 EOF
     echo "'istio/istio-core.yaml' is generated."
-  elif [[ "auto-injected" == "$1" ]]; then
+  elif [[ "autoinjected" == "$1" ]]; then
     echo "Generating istio operator for 'kfserving auto-injection'..."
     cat << EOF > ./istio/istio-core.yaml
 apiVersion: v1
@@ -233,6 +227,9 @@ spec:
     #   enabled: true
 
   components:
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
@@ -266,12 +263,6 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
-            - port: 15033
-              name: istio-zipkin
-              targetPort: 15033
-            - port: 15035
-              name: knative-grafana
-              targetPort: 15035
 EOF
     echo "'istio/istio-core.yaml' is generated."
   else
@@ -303,6 +294,9 @@ spec:
       enabled: true
 
   components:
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
@@ -336,12 +330,6 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
-            - port: 15033
-              name: istio-zipkin
-              targetPort: 15033
-            - port: 15035
-              name: knative-grafana
-              targetPort: 15035
 EOF
     istioctl manifest generate \
       -f ./istio/istio-operator.yaml \
@@ -425,7 +413,7 @@ EOF
   fi
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/kiali.yaml -O && \
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/prometheus.yaml -O && \
-  ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/extras/zipkin.yaml -O && \
+  # ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/extras/zipkin.yaml -O && \
   cd ..
   echo "'istio-metrics' manifests are downloaded."
   echo -e "$(ls -AR ./istio-metrics)\n"
@@ -451,6 +439,61 @@ function install_istio () {
   ${ISTIO_INSTALL_COMMAND} -f ./istio/istio-operator.yaml \
     --set values.gateways.istio-ingressgateway.runAsRoot=true
   echo ''
+
+#   ${KUBECTL_COMMAND} -n istio-system patch svc istio-ingressgateway --type=json -p='
+# [
+#     {
+#         "op": "add",
+#         "path": "/spec/ports/-",
+#         "value": {
+#             "name": "istio-kiali",
+#             "port": 15029,
+#             "protocol":"TCP",
+#             "targetPort": 15029
+#         }
+#     },
+#     {
+#         "op": "add",
+#         "path": "/spec/ports/-",
+#         "value": {
+#             "name": "istio-prometheus",
+#             "port": 15030,
+#             "protocol":"TCP",
+#             "targetPort": 15030
+#         }
+#     },
+#     {
+#         "op": "add",
+#         "path": "/spec/ports/-",
+#         "value": {
+#             "name": "istio-grafana",
+#             "port": 15031,
+#             "protocol":"TCP",
+#             "targetPort": 15031
+#         }
+#     },
+#     {
+#         "op": "add",
+#         "path": "/spec/ports/-",
+#         "value": {
+#             "name": "istio-tracing",
+#             "port": 15032,
+#             "protocol":"TCP",
+#             "targetPort": 15032
+#         }
+#     },
+#     {
+#         "op": "add",
+#         "path": "/spec/ports/-",
+#         "value": {
+#             "name": "k8s-dashboard",
+#             "port": 15033,
+#             "protocol":"TCP",
+#             "targetPort": 15033
+#         }
+#     }
+# ]'
+
 
   # as default, ConfigMap prometheus, istio-grafana-dashboards, istio-services-grafana-dashboards created in default(not specified in yaml).
   ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/prometheus.yaml || ${KUBECTL_COMMAND} -n istio-system apply -f ./istio-metrics/prometheus.yaml
@@ -621,7 +664,7 @@ function setup () {
   set_istioctl $ISTIO_VERSION
 
   get_certmanager_yaml $CERT_MANAGER_VERSION
-  get_istio_yaml $ISTIO_PROFILE # 'basic', 'auto-injected' or ${profile_name}(ex. demo, minimal)
+  get_istio_yaml $ISTIO_PROFILE # 'basic', 'autoinjected' or ${profile_name}(ex. demo, minimal)
   get_istio_metrics_yaml $ISTIO_VERSION
   get_knative_yaml $KNATIVE_VERSION
   get_kfserving_yaml $KFSERVING_VERSION

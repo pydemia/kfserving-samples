@@ -1,0 +1,90 @@
+apiVersion: cert-manager.io/v1  # >= v0.11
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+  namespace: istio-system
+spec:
+  acme:
+    email: yj.kim1@sk.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource used to store the account's private key.
+      # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
+      name: letsencrypt-prod
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector:
+        dnsNames:
+        - "*.airuntime.com"
+        # - app.airuntime.com
+        # - dev.airuntime.com
+        # - stg.airuntime.com
+        # - staging.airuntime.com
+        # - devel.airuntime.com
+        # - app.dev.airuntime.com
+        # - app.stg.airuntime.com
+        # - "*.airuntime.com"
+        # - '*.dev.airuntime.com'
+      http01:
+        ingress:
+          class: nginx
+          # class: nginx
+---
+# apiVersion: networking.k8s.io/v1  >= k8s 1.16
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-prod
+  namespace: istio-system
+  annotations:
+    # cert-manager.io/issuer  # >= v0.11
+    cert-manager.io/issuer: letsencrypt-prod
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    kubernetes.io/ingress.class: nginx
+    
+    # Ingress with istio: https://www.tetrate.io/blog/using-istio-with-other-ingress-proxies/
+    # sidecar.istio.io/inject: true
+    # traffic.sidecar.istio.io/includeInboundPorts: ""
+    # traffic.sidecar.istio.io/excludeInboundPorts: "80,443"
+    # traffic.sidecar.istio.io/excludeOutboundIPRanges: "1.1.1.1/24,2.2.2.2/16,3.3.3.3/20"
+    
+    # On Google Kubernetes Engine,
+    # if no annotation is defined under the metadata section,
+    # the Ingress Resource uses the L7 load balancer to serve traffic.
+    # 'gce' for external LB and 'gce-internal' for internal LB
+    # This method can also be forced by setting the annotation's value
+    # to gce as shown below:
+    # kubernetes.io/ingress.class: gce
+    nginx.ingress.kubernetes.io/ssl-redirect: "true" # "true"
+    # kubernetes.io/tls-acme: "true"  # < Could not determine issuer for ingress due to bad annotations: failed to determine issuer name to be used for ingress resource
+    nginx.ingress.kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  tls:  # < placing a host in the TLS config will indicate a cert should be created
+  - hosts:
+    # - app.airuntime.com
+    - dev.airuntime.com
+    # - stg.airuntime.com
+    # - staging.airuntime.com
+    # - app.airuntime.com
+    # - dev.airuntime.com
+    # - dev2.airuntime.com
+    # - devel.airuntime.com
+    # - stg.airuntime.com
+    # - staging.airuntime.com
+    secretName: ingress-tls-prod  # < cert-manager will store the created certificate in this secret.
+    # `kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls-prod`
+  rules:
+  - host: dev.airuntime.com  # www.example.com
+    http:
+      paths:
+      - path: /kiali-nginx
+        backend:
+          serviceName: kiali
+          servicePort: 20001
+      - path: /
+        backend:
+          serviceName: istio-ingressgateway
+          servicePort: 443

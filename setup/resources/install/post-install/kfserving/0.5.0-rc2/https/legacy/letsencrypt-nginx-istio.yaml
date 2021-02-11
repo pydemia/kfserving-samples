@@ -1,0 +1,204 @@
+# apiVersion: cert-manager.io/v1alpha2  # >= v0.11
+# kind: Issuer
+# metadata:
+#   name: letsencrypt-staging
+#   namespace: istio-system
+# spec:
+#   acme:
+#     email: pydemia@gmail.com
+#     server: https://acme-staging-v02.api.letsencrypt.org/directory
+#     preferredChain: "ISRG Root X1"
+#     privateKeySecretRef:
+#       # Secret resource used to store the account's private key.
+#       # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
+#       name: letsencrypt-staging-private-key
+#     # http01: {}
+#     solvers:
+#     # An empty 'selector' means that this solver matches all domains
+#     - selector: {}
+#       http01:
+#         ingress:
+#           class: nginx
+---
+# apiVersion: certmanager.k8s.io/v1alpha1  # < v0.11
+apiVersion: cert-manager.io/v1alpha2  # >= v0.11
+kind: Issuer
+metadata:
+  name: letsencrypt-prod
+  namespace: istio-system
+spec:
+  acme:
+    email: pydemia@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource used to store the account's private key.
+      # `kubectl -n cert-manager get secrets letsencrypt-prod-private-key`
+      name: letsencrypt-prod-private-key
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector: {}
+      http01:
+        ingress:
+          class: nginx
+---
+# apiVersion: certmanager.k8s.io/v1alpha1  # < v0.11
+apiVersion: cert-manager.io/v1alpha2  # >= v0.11
+kind: ClusterIssuer
+metadata:
+  name: istio-letsencrypt-prod
+  namespace: istio-system
+spec:
+  acme:
+    email: pydemia@gmail.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource used to store the account's private key.
+      # `kubectl -n cert-manager get secrets letsencrypt-prod-private-key`
+      name: istio-letsencrypt-prod-private-key
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector: {}
+      http01:
+        ingress:
+          class: nginx
+---
+# apiVersion: cert-manager.io/v1alpha2
+# kind: Certificate
+# metadata:
+#   name: istio-ingressgateway-certs
+#   namespace: istio-system
+# spec:
+#   commonName: kubeflow.pydemia.org  # original: istio-ingressgateway.istio-system.svc
+#   # Use ipAddresses if your LoadBalancer issues an IP
+#   # ipAddresses:
+#   # - "xxxxxx"
+#   # # Use dnsNames if your LoadBalancer issues a hostname (eg on AWS)
+#   dnsNames:
+#   - kubeflow.pydemia.org
+#   isCA: true
+#   issuerRef:
+#     kind: ClusterIssuer
+#     name: istio-letsencrypt-prod
+#   secretName: istio-ingressgateway-certs
+#   acme:
+#     config:
+#     - http01:
+#         # ingressClass: istio
+#         ingressClass: nginx
+#       domains:
+#       - kubeflow.pydemia.org
+# ---
+# # apiVersion: certmanager.k8s.io/v1alpha1  # < v0.11
+# apiVersion: cert-manager.io/v1alpha2  # >= v0.11
+# kind: ClusterIssuer
+# metadata:
+#   name: kubeflow-self-signing-issuer
+#   namespace: istio-system
+# spec:
+#   acme:
+#     email: pydemia@gmail.com
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     preferredChain: "ISRG Root X1"
+#     privateKeySecretRef:
+#       # Secret resource used to store the account's private key.
+#       # `kubectl -n cert-manager get secrets letsencrypt-prod-private-key`
+#       name: kubeflow-self-signing-issuer-private-key
+#     solvers:
+#     # An empty 'selector' means that this solver matches all domains
+#     - selector: {}
+#       http01:
+#         ingress:
+#           class: istio
+# ---
+# apiVersion: cert-manager.io/v1alpha2
+# kind: Certificate
+# metadata:
+#   name: istio-ingressgateway-certs
+#   namespace: istio-system
+# spec:
+#   commonName: istio-ingressgateway.istio-system.svc
+#   # Use ipAddresses if your LoadBalancer issues an IP
+#   ipAddresses:
+#   - <LoadBalancer IP>
+#   # Use dnsNames if your LoadBalancer issues a hostname (eg on AWS)
+#   dnsNames:
+#   - <LoadBalancer HostName>
+#   isCA: true
+#   issuerRef:
+#     kind: ClusterIssuer
+#     name: kubeflow-self-signing-issuer
+#   secretName: istio-ingressgateway-certs
+---
+# apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1beta1
+# apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: istio-ingress-prod
+  namespace: istio-system
+  annotations:
+    # https://docs.cert-manager.io/en/release-0.11/tasks/issuing-certificates/ingress-shim.html#supported-annotations
+    # certmanager.k8s.io/issuer  # < v0.11
+    # cert-manager.io/issuer  # >= v0.11
+    # cert-manager.io/issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: istio-letsencrypt-prod
+    # kubernetes.io/ingress.class: istio
+    kubernetes.io/ingress.class: nginx
+    # nginx.ingress.kubernetes.io/service-upstream: "true"
+    # nginx.ingress.kubernetes.io/upstream-vhost: istio-ingressgateway.istio-system.svc.cluster.local
+    # On Google Kubernetes Engine,
+    # if no annotation is defined under the metadata section,
+    # the Ingress Resource uses the L7 load balancer to serve traffic.
+    # 'gce' for external LB and 'gce-internal' for internal LB
+    # This method can also be forced by setting the annotation's value
+    # to gce as shown below:
+    # kubernetes.io/ingress.class: gce
+    nginx.ingress.kubernetes.io/ssl-redirect: "true" # "true"
+    # # kubernetes.io/tls-acme: "true"  # < Could not determine issuer for ingress due to bad annotations: failed to determine issuer name to be used for ingress resource
+    nginx.ingress.kubernetes.io/tls-acme: "true"
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:  # < placing a host in the TLS config will indicate a cert should be created
+  - hosts:
+    - kubeflow.pydemia.org
+    secretName: istio-ingressgateway-certs  # < cert-manager will store the created certificate in this secret.
+    # `kubectl -n kubeflow describe certificates.cert-manager.io nginx-tls-prod`
+  rules:
+  - host: kubeflow.pydemia.org
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: istio-ingressgateway
+          servicePort: 80
+---
+# apiVersion: networking.istio.io/v1alpha3
+# kind: VirtualService
+# metadata:
+#   annotations:
+#   generation: 1
+#   labels:
+#     app.kubernetes.io/component: centraldashboard
+#     app.kubernetes.io/name: centraldashboard
+#   name: centraldashboard
+#   namespace: kubeflow
+# spec:
+#   gateways:
+#   - kubeflow-gateway
+#   hosts:
+#   - '*'
+#   http:
+#   - match:
+#     - uri:
+#         # prefix: /dashboard
+#         prefix: /
+#     rewrite:
+#       uri: /
+#     route:
+#     - destination:
+#         host: centraldashboard.kubeflow.svc.cluster.local
+#         port:
+#           number: 80
+# ---

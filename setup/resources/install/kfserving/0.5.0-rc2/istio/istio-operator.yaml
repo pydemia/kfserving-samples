@@ -23,6 +23,9 @@ spec:
     #   enabled: true
 
   components:
+    egressGateways:
+      - name: istio-egressgateway
+        enabled: true
     ingressGateways:
       - name: istio-ingressgateway
         enabled: true
@@ -56,9 +59,3 @@ spec:
             - port: 15032
               name: istio-tracing
               targetPort: 15032
-            - port: 15033
-              name: istio-zipkin
-              targetPort: 15033
-            - port: 15035
-              name: knative-grafana
-              targetPort: 15035

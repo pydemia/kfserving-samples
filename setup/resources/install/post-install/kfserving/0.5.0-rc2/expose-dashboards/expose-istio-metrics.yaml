@@ -7,13 +7,17 @@ spec:
   selector:
     istio: ingressgateway
   servers:
-  # - port:
-  #     # number: 80
-  #     number: 15029
-  #     name: istio-kiali
-  #     protocol: HTTP
-  #   hosts:
-  #   - "*"
+  - port:
+      number: 80
+      name: istio-metrics
+      protocol: HTTP
+    hosts:
+    - "dev.airuntime.com"
+    - "kiali.dev.airuntime.com"
+    - "prometheus.dev.airuntime.com"
+    - "grafana.dev.airuntime.com"
+    - "tracing.dev.airuntime.com"
+    - "zipkin.dev.airuntime.com"
   - port:
       name: istio-kiali
       number: 15029
@@ -35,12 +39,6 @@ spec:
   - port:
       name: istio-tracing
       number: 15032
-      protocol: HTTP
-    hosts:
-    - "*"
-  - port:
-      name: istio-zipkin
-      number: 15033
       protocol: HTTP
     hosts:
     - "*"
@@ -85,12 +83,69 @@ spec:
         port:
           number: 80
   - match:
-    - port: 15033
+    # - method:
+    #     exact: GET
+    - uri:
+        prefix: /kiali
+      port: 80
+    rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      # authority: grafana.knative-monitoring.svc.cluster.local
+      uri: /kiali
     route:
     - destination:
-        host: zipkin
+        host: kiali
         port:
-          number: 9411
+          number: 20001
+  - match:
+    # - method:
+    #     exact: GET
+    - uri:
+        prefix: /graph
+      port: 80
+    rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      # authority: grafana.knative-monitoring.svc.cluster.local
+      # uri: /graph
+    route:
+    - destination:
+        host: prometheus
+        port:
+          number: 9090
+  - match:
+    # - method:
+    #     exact: GET
+    - uri:
+        prefix: /grafana
+      port: 80
+    rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      # authority: grafana.knative-monitoring.svc.cluster.local
+      # uri: /kiali
+    route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+  - match:
+    # - method:
+    #     exact: GET
+    - uri:
+        prefix: /jaeger
+      port: 80
+    rewrite:
+      # Rewrite the original host header to the host header of Search service
+      # in order to redirect requests to Search service.
+      # authority: grafana.knative-monitoring.svc.cluster.local
+      uri: /jaeger
+    route:
+    - destination:
+        host: tracing
+        port:
+          number: 80
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -136,17 +191,82 @@ spec:
     tls:
       mode: DISABLE
 ---
-apiVersion: networking.istio.io/v1beta1
-kind: DestinationRule
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
 metadata:
-  name: zipkin
+  name: kiali-vs
   namespace: istio-system
 spec:
-  host: zipkin.istio-system
-  trafficPolicy:
-    tls:
-      mode: DISABLE
-# ---
+  gateways:
+  - istio-metrics
+  hosts:
+  - "kiali.dev.airuntime.com"
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: kiali
+        port:
+          number: 20001
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: prometheus-vs
+  namespace: istio-system
+spec:
+  gateways:
+  - istio-metrics
+  hosts:
+  - "prometheus.dev.airuntime.com"
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: prometheus
+        port:
+          number: 9090
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: grafana-vs
+  namespace: istio-system
+spec:
+  gateways:
+  - istio-metrics
+  hosts:
+  - "grafana.dev.airuntime.com"
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tracing-vs
+  namespace: istio-system
+spec:
+  gateways:
+  - istio-metrics
+  hosts:
+  - "tracing.dev.airuntime.com"
+  http:
+  - match:
+    - port: 80
+    route:
+    - destination:
+        host: tracing
+        port:
+          number: 80
+---
 # apiVersion: networking.istio.io/v1alpha3
 # kind: VirtualService
 # metadata:
@@ -157,7 +277,7 @@ spec:
 #   # This is the gateway shared in knative service mesh.
 #   - knative-ingress-gateway.knative-serving.svc.cluster.local
 #   hosts:
-#   - '*'
+#   - "zipkin.dev.airuntime.com"
 #   http:
 #   - match:
 #     # - method:

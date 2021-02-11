@@ -1,0 +1,150 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ingress-prd
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - kiali.airuntime.com
+    - grafana.airuntime.com
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: ingress-tls-prd
+    hosts:
+    - dashboard.airuntime.com
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ingress-istio-prd
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - grafana.prd.airuntime.com
+    - kiali.prd.airuntime.com
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: ingress-istio-tls-prd
+    hosts:
+    - dashboard.prd.airuntime.com
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  hosts:
+  - kiali.airuntime.com
+  - kiali.prd.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  - route:
+    - destination:
+        host: kiali
+        port:
+          number: 20001
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  host: kiali
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: grafana
+  namespace: istio-system
+spec:
+  hosts:
+  - grafana.airuntime.com
+  - grafana.prd.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  - route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: grafana
+  namespace: istio-system
+spec:
+  host: grafana
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kubernetes-dashboard
+  namespace: istio-system
+spec:
+  hosts:
+  # - "*.airuntime.com"
+  # - "*.prd.airuntime.com"
+  - dashboard.airuntime.com
+  - dashboard.prd.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  tls:
+  - match:
+    # - port: 443
+    - sniHosts:
+      - dashboard.airuntime.com
+      - dashboard.prd.airuntime.com
+    route:
+    - destination:
+        # host: kubernetes-dashboard
+        host: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
+        port: 
+          number: 443
+# ---
+# apiVersion: networking.istio.io/v1beta1
+# kind: DestinationRule
+# metadata:
+#   name: kubernetes-dashboard
+#   namespace: kubernetes-dashboard
+# spec:
+#   host: grafana
+#   trafficPolicy:
+#     tls:
+#       mode: DISABLE
+# ---

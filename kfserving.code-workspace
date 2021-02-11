@@ -9,6 +9,6 @@
 		"python.condaPath": "${env:HOME}/apps/anaconda3/bin/conda",
 		"python.dataScience.sendSelectionToInteractiveWindow": true,
 		"python.terminal.executeInFileDir": true,
-		"python.linting.pylintEnabled": false
+		"python.linting.pylintEnabled": true
 	}
 }
