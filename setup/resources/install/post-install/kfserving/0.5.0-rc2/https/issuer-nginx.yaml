@@ -1,5 +1,5 @@
 apiVersion: cert-manager.io/v1  # >= v0.11
-kind: ClusterIssuer
+kind: Issuer
 metadata:
   name: letsencrypt-prd
   namespace: istio-system  # It will be ignored when clusterissuer, which is cross-namespaced.
@@ -27,7 +27,7 @@ spec:
 ---
 
 apiVersion: cert-manager.io/v1  # >= v0.11
-kind: ClusterIssuer
+kind: Issuer
 metadata:
   name: letsencrypt-stg
   namespace: istio-system  # It will be ignored when clusterissuer, which is cross-namespaced.

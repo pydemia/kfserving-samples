@@ -5,8 +5,8 @@ metadata:
   namespace: istio-system
   annotations:
     # cert-manager.io/issuer
-    # cert-manager.io/issuer: letsencrypt-istio-prd  # >= v0.11
-    cert-manager.io/cluster-issuer: letsencrypt-istio-prd
+    cert-manager.io/issuer: letsencrypt-istio-prd  # >= v0.11
+    # cert-manager.io/cluster-issuer: letsencrypt-istio-prd
     kubernetes.io/ingress.class: istio
     # kubernetes.io/tls-acme: "true"  # < Could not determine issuer for ingress due to bad annotations: failed to determine issuer name to be used for ingress resource
     kubernetes.io/ingress.allow-http: "false"
@@ -50,8 +50,8 @@ metadata:
   name: ingress-istio-stg
   namespace: istio-system
   annotations:
-    # cert-manager.io/issuer: letsencrypt-istio-stg  # >= v0.11
-    cert-manager.io/cluster-issuer: letsencrypt-istio-stg
+    cert-manager.io/issuer: letsencrypt-istio-stg  # >= v0.11
+    # cert-manager.io/cluster-issuer: letsencrypt-istio-stg
     kubernetes.io/ingress.class: istio
     # kubernetes.io/tls-acme: "true"  # < Could not determine issuer for ingress due to bad annotations: failed to determine issuer name to be used for ingress resource
     kubernetes.io/ingress.allow-http: "true"
@@ -81,10 +81,10 @@ spec:
         backend:
           serviceName: istio-ingressgateway
           servicePort: 80
-  - host: "dashboard.stg.airuntime.com"  # www.example.com
-    http:
-      paths:
-      - path: /
-        backend:
-          serviceName: istio-ingressgateway
-          servicePort: 443
+  # - host: "dashboard.stg.airuntime.com"  # www.example.com
+  #   http:
+  #     paths:
+  #     - path: /
+  #       backend:
+  #         serviceName: istio-ingressgateway
+  #         servicePort: 443

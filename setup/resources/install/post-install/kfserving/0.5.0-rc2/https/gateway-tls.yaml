@@ -12,18 +12,20 @@ spec:
       name: http
       protocol: HTTP
     hosts:
-    - airuntime.com
-    - "*.airuntime.com"
-    # - app.airuntime.com
-    # - kiali.airuntime.com
-    # - prometheus.airuntime.com
-    # - grafana.airuntime.com
-    # - tracing.airuntime.com
-    # - es.airuntime.com
-    # - kibana.airuntime.com
-    # - fluentd.airuntime.com
-    # - tekton.airuntime.com
+    # - airuntime.com
+    - app.airuntime.com
+    - kiali.airuntime.com
+    - prometheus.airuntime.com
+    - grafana.airuntime.com
+    - tracing.airuntime.com
+    - es.airuntime.com
+    - kibana.airuntime.com
+    - fluentd.airuntime.com
+    - tekton.airuntime.com
 
+    - dashboard.airuntime.com
+
+    - "dev.airuntime.com"
     - "*.dev.airuntime.com"
   # - port:
   #     number: 443
@@ -62,6 +64,7 @@ spec:
     # - fluentd.prd.airuntime.com
     # - tekton.prd.airuntime.com
 
+    - "stg.airuntime.com"
     - "*.stg.airuntime.com"
 
   # - port:
@@ -241,27 +244,30 @@ spec:
   - ingress-prd
   - ingress-istio-prd
   http:
+  # - headers:
+  #     request:
+  #       add:
+  #         Authorization: "Bearer "
   - route:
     - destination:
         host: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
         port:
           number: 8443
-    rewrite:
-      uri: /
-  # tls:
-  # - match:
-  #   # - port: 443
-  #   - sniHosts:
-  #     - dashboard.airuntime.com
-  #     - dashboard.dev.airuntime.com
-  #     - dashboard.prd.airuntime.com
-  #     - dashboard.stg.airuntime.com
-  #   route:
-  #   - destination:
-  #       # host: kubernetes-dashboard
-  #       host: kubernetes-dashboard
-  #       port: 
-  #         number: 443
+    # rewrite:
+    #   uri: /
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - dashboard.airuntime.com
+      - dashboard.dev.airuntime.com
+      - dashboard.prd.airuntime.com
+      - dashboard.stg.airuntime.com
+    route:
+    - destination:
+        host: kubernetes-dashboard.kubernetes-dashboard.svc.cluster.local
+        port: 
+          number: 8443
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
@@ -273,5 +279,5 @@ spec:
   host: kubernetes-dashboard
   trafficPolicy:
     tls:
-      mode: DISABLE
+      mode: SIMPLE
 ---

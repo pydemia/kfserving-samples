@@ -88,6 +88,56 @@ helm install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
   --create-namespace \
   --set image.repository=kubernetesui/dashboard \
   --set image.tag=v2.1.0 \
+  --set ingress.enabled=false \
+  --set metrics-server.enabled=false
+```
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations:
+    meta.helm.sh/release-name: kubernetes-dashboard
+    meta.helm.sh/release-namespace: kubernetes-dashboard
+  creationTimestamp: "2021-02-11T00:50:03Z"
+  labels:
+    app.kubernetes.io/instance: kubernetes-dashboard
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kubernetes-dashboard
+    app.kubernetes.io/version: 2.1.0
+    helm.sh/chart: kubernetes-dashboard-4.0.0
+  name: kubernetes-dashboard-certs
+  namespace: kubernetes-dashboard
+  resourceVersion: "17901371"
+  selfLink: /api/v1/namespaces/kubernetes-dashboard/secrets/kubernetes-dashboard-certs
+  uid: f6ebbaa3-5410-45b4-b705-bbba632e430c
+type: Opaque
+EOF
+```
+kubectl -n kubernetes-dashboard delete secret kubernetes-dashboard-certs
+kubectl -n kubernetes-dashboard create secret generic kubernetes-dashboard-certs \
+  --from-literal=tls.crt="$(kubectl -n istio-system get secrets ingress-istio-tls-stg -o jsonpath='{.data.tls\.crt}')" \
+  --from-literal=tls.key="$(kubectl -n istio-system get secrets ingress-istio-tls-stg -o jsonpath='{.data.tls\.key}')"
+  
+
+kubectl -n kubernetes-dashboard patch secret kubernetes-dashboard-certs \
+  --type=json -p "
+[
+  {
+    "op": "add",
+    "path": "/data",
+    "value": "$(kubectl -n istio-system get secrets ingress-istio-tls-stg -o jsonpath="{.data}")"
+  }
+]"
+
+kubectl -n kubernetes-dashboard patch secret kubernetes-dashboard-certs --type=merge -p "{"data": "$(kubectl -n istio-system get secrets ingress-istio-tls-stg -o jsonpath="{.data}")"}"
+
+helm install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
+  --namespace=kubernetes-dashboard \
+  --create-namespace \
+  --set image.repository=kubernetesui/dashboard \
+  --set image.tag=v2.1.0 \
   --set protocolHttp=true \
   --set service.externalPort=9090 \
   --set ingress.enabled=false \
