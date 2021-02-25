@@ -1,0 +1,172 @@
+
+# apiVersion: networking.istio.io/v1beta1
+# kind: Gateway
+# metadata:
+#   name: ingress-prd-es
+#   namespace: elasticsearch
+# spec:
+#   selector:
+#     istio: ingressgateway
+#   servers:
+#   - port:
+#       number: 80
+#       name: http
+#       protocol: HTTP
+#     hosts:
+#     # - airuntime.com
+#     - es.airuntime.com
+#     - kibana.airuntime.com
+
+#     - es.dev.airuntime.com
+#     - kibana.dev.airuntime.com
+#   - port:
+#       number: 443
+#       name: https
+#       protocol: HTTPS
+#     tls:
+#       mode: SIMPLE
+#       credentialName: elasticsearch-rest-certs
+#     hosts:
+#     - es.airuntime.com
+#     - kibana.airuntime.com
+#     - es.dev.airuntime.com
+#     - kibana.dev.airuntime.com
+# ---
+# apiVersion: networking.istio.io/v1beta1
+# kind: Gateway
+# metadata:
+#   name: ingress-istio-prd-es
+#   namespace: elasticsearch
+# spec:
+#   selector:
+#     istio: ingressgateway
+#   servers:
+#   - port:
+#       number: 80
+#       name: http
+#       protocol: HTTP
+#     hosts:
+#     - prd.airuntime.com
+#     - es.prd.airuntime.com
+#     - kibana.prd.airuntime.com
+#     - es.stg.airuntime.com
+#     - kibana.stg.airuntime.com
+#   - port:
+#       number: 443
+#       name: https
+#       protocol: HTTPS
+#     tls:
+#       mode: SIMPLE
+#       credentialName: elasticsearch-rest-certs
+#     hosts:
+#     - es.prd.airuntime.com
+#     - es.stg.airuntime.com
+#     - kibana.prd.airuntime.com
+#     - kibana.stg.airuntime.com
+# ---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kibana
+  namespace: elasticsearch
+spec:
+  hosts:
+  # - "*.airuntime.com"
+  # - "*.prd.airuntime.com"
+  - kibana.airuntime.com
+  - kibana.dev.airuntime.com
+  - kibana.prd.airuntime.com
+  - kibana.stg.airuntime.com
+  gateways:
+  - ingress-prd.istio-system
+  - ingress-istio-prd.istio-system
+  http:
+  # - headers:
+  #     request:
+  #       add:
+  #         Authorization: "Bearer "
+  - route:
+    - destination:
+        host: elasticsearch-opendistro-es-kibana-svc.elasticsearch.svc.cluster.local
+        port:
+          number: 443
+    # rewrite:
+    #   uri: /
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - kibana.airuntime.com
+      - kibana.dev.airuntime.com
+      - kibana.prd.airuntime.com
+      - kibana.stg.airuntime.com
+    route:
+    - destination:
+        host: elasticsearch-opendistro-es-kibana-svc.elasticsearch.svc.cluster.local
+        port: 
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: kibana
+  namespace: elasticsearch
+spec:
+  host: elasticsearch-opendistro-es-kibana-svc
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: elasticsearch
+  namespace: elasticsearch
+spec:
+  hosts:
+  # - "*.airuntime.com"
+  # - "*.prd.airuntime.com"
+  - es.airuntime.com
+  - es.dev.airuntime.com
+  - es.prd.airuntime.com
+  - es.stg.airuntime.com
+  gateways:
+  - ingress-prd.istio-system
+  - ingress-istio-prd.istio-system
+  http:
+  # - headers:
+  #     request:
+  #       add:
+  #         Authorization: "Bearer "
+  - route:
+    - destination:
+        host: elasticsearch-opendistro-es-client-service.elasticsearch.svc.cluster.local
+        port:
+          number: 9200
+    # rewrite:
+    #   uri: /
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - es.airuntime.com
+      - es.dev.airuntime.com
+      - es.prd.airuntime.com
+      - es.stg.airuntime.com
+    route:
+    - destination:
+        host: elasticsearch-opendistro-es-client-service.elasticsearch.svc.cluster.local
+        port: 
+          number: 9200
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: elasticsearch
+  namespace: elasticsearch
+spec:
+  host: elasticsearch-opendistro-es-client-service
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---

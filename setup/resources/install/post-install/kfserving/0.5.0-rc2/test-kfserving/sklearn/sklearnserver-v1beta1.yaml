@@ -1,0 +1,18 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearnserver"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: docker.io/pydemia/sklearnserver:0.1.0
+      name: kfserving-container
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8081
+          protocol: TCP
+      # envs:
+      #   - name: 
+      #     value: 

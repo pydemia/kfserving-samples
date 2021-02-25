@@ -1,0 +1,52 @@
+apiVersion: v1
+items:
+- apiVersion: serving.kubeflow.org/v1alpha2
+  kind: InferenceService
+  metadata:
+    name: hm-model
+    namespace: auto-create-26
+  spec:
+    default:
+      predictor:
+        custom:
+          container:
+            command:
+            - sh
+            - run_server.sh
+            env:
+            - name: MODEL_NAME
+              value: hm-model
+            image: wxmaseve/nvidia-hm:0.0.1.dicomlink-cloud
+            name: kfserving-container
+            resources:
+              limits:
+                cpu: "1"
+                memory: 6Gi
+              requests:
+                cpu: "1"
+                memory: 6Gi
+        maxReplicas: 1
+        minReplicas: 1
+---
+apiVersion: serving.kubeflow.org/v1alpha2
+kind: InferenceService
+metadata:
+  annotations:
+  name: skh-bch-001
+  namespace: auto-create-26
+spec:
+  default:
+    predictor:
+      custom:
+        container:
+          image: wxmaseve/nvidia-hm:0.0.1.dicomlink-cloud
+          name: kfserving-container
+          resources:
+            limits:
+              cpu: "1"
+              memory: 4G
+            requests:
+              cpu: "1"
+              memory: 4G
+      maxReplicas: 1
+      minReplicas: 1

@@ -1,0 +1,2 @@
+{\n    \"env\": [{\n        \"name\": \"MODEL_NAME\",\n\
+            \        \"value\": \"sentiment-cpu\"\n    }]\n}
