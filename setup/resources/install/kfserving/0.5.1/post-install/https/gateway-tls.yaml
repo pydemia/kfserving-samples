@@ -1,0 +1,320 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ingress-prd
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    # - airuntime.com
+    - app.airuntime.com
+    - kiali.airuntime.com
+    - prometheus.airuntime.com
+    - grafana.airuntime.com
+    - tracing.airuntime.com
+    - es.airuntime.com
+    - kibana.airuntime.com
+    - fluentd.airuntime.com
+    - tekton.airuntime.com
+
+    - dashboard.airuntime.com
+
+    - "dev.airuntime.com"
+    - "*.dev.airuntime.com"
+  # - port:
+  #     number: 443
+  #     name: https
+  #     protocol: HTTPS
+  #   tls:
+  #     mode: SIMPLE
+  #     credentialName: ingress-tls-prd
+  #   hosts:
+  #   - dashboard.airuntime.com
+  #   - dashboard.dev.airuntime.com
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ingress-istio-prd
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - prd.airuntime.com
+    - "*.prd.airuntime.com"
+    # - app.prd.airuntime.com
+    # - kiali.prd.airuntime.com
+    # - prometheus.prd.airuntime.com
+    # - grafana.prd.airuntime.com
+    # - tracing.prd.airuntime.com
+    # - es.prd.airuntime.com
+    # - kibana.prd.airuntime.com
+    # - fluentd.prd.airuntime.com
+    # - tekton.prd.airuntime.com
+
+    - "stg.airuntime.com"
+    - "*.stg.airuntime.com"
+
+  # - port:
+  #     number: 443
+  #     name: https
+  #     protocol: HTTPS
+  #   tls:
+  #     mode: SIMPLE
+  #     credentialName: ingress-istio-tls-prd
+  #   hosts:
+  #   - dashboard.prd.airuntime.com
+  #   - dashboard.stg.airuntime.com
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kiali
+spec:
+  hosts:
+  - kiali.airuntime.com
+  - kiali.dev.airuntime.com  
+  - kiali.prd.airuntime.com
+  - kiali.stg.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  - route:
+    - destination:
+        host: kiali.istio-system.svc.cluster.local
+        port:
+          number: 20001
+      # headers:
+      #   request:
+      #     set:
+      #     add:
+      #     remove:
+      #   response:
+      #     remove:
+      #     - foo
+    rewrite:
+      uri: /
+    # rewrite:
+    # Rewrite the original host header to the host header of Search service
+    # in order to redirect requests to Search service.
+    #   authority: kiali.istio-system.svc.cluster.local
+    #   uri: /
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: kiali
+spec:
+  host: kiali.istio-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: prometheus
+spec:
+  hosts:
+  - prometheus.airuntime.com
+  - prometheus.dev.airuntime.com  
+  - prometheus.prd.airuntime.com
+  - prometheus.stg.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  - route:
+    - destination:
+        host: prometheus.istio-system.svc.cluster.local
+        port:
+          number: 9090
+    rewrite:
+      uri: /
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: prometheus
+spec:
+  host: prometheus.istio-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: grafana
+spec:
+  hosts:
+  - grafana.airuntime.com
+  - grafana.dev.airuntime.com  
+  - grafana.prd.airuntime.com
+  - grafana.stg.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  - route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+    rewrite:
+      uri: /
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: grafana
+spec:
+  host: grafana.istio-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: tracing
+spec:
+  hosts:
+  - tracing.airuntime.com
+  - tracing.dev.airuntime.com  
+  - tracing.prd.airuntime.com
+  - tracing.stg.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  - route:
+    - destination:
+        host: tracing.istio-system.svc.cluster.local
+        port:
+          number: 80
+    rewrite:
+      uri: /
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: tracing
+spec:
+  host: tracing.istio-system.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: kibana
+spec:
+  hosts:
+  # - "*.airuntime.com"
+  # - "*.prd.airuntime.com"
+  - kibana.airuntime.com
+  - kibana.dev.airuntime.com
+  - kibana.prd.airuntime.com
+  - kibana.stg.airuntime.com
+  gateways:
+  - ingress-prd.istio-system
+  - ingress-istio-prd.istio-system
+  http:
+  # - headers:
+  #     request:
+  #       add:
+  #         Authorization: "Bearer "
+  - route:
+    - destination:
+        host: elasticsearch-opendistro-es-kibana-svc.elasticsearch.svc.cluster.local
+        port:
+          number: 443
+    # rewrite:
+    #   uri: /
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - kibana.airuntime.com
+      - kibana.dev.airuntime.com
+      - kibana.prd.airuntime.com
+      - kibana.stg.airuntime.com
+    route:
+    - destination:
+        host: elasticsearch-opendistro-es-kibana-svc.elasticsearch.svc.cluster.local
+        port: 
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: kibana
+spec:
+  host: elasticsearch-opendistro-es-kibana-svc.elasticsearch.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: elasticsearch
+spec:
+  hosts:
+  # - "*.airuntime.com"
+  # - "*.prd.airuntime.com"
+  - es.airuntime.com
+  - es.dev.airuntime.com
+  - es.prd.airuntime.com
+  - es.stg.airuntime.com
+  gateways:
+  - ingress-prd
+  - ingress-istio-prd
+  http:
+  # - headers:
+  #     request:
+  #       add:
+  #         Authorization: "Bearer "
+  - route:
+    - destination:
+        host: elasticsearch-opendistro-es-client-service.elasticsearch.svc.cluster.local
+        port:
+          number: 9200
+    # rewrite:
+    #   uri: /
+  tls:
+  - match:
+    - port: 443
+      sniHosts:
+      - es.airuntime.com
+      - es.dev.airuntime.com
+      - es.prd.airuntime.com
+      - es.stg.airuntime.com
+    route:
+    - destination:
+        host: elasticsearch-opendistro-es-client-service.elasticsearch.svc.cluster.local
+        port: 
+          number: 9200
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: elasticsearch
+spec:
+  host: elasticsearch-opendistro-es-client-service.elasticsearch.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE

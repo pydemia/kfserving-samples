@@ -10,9 +10,9 @@ ISTIO_PROFILE="${ISTIO_PROFILE:-autoinjected}"
 
 CERT_MANAGER_VERSION="${CERT_MANAGER_VERSION:-1.1.0}"
 KUBECTL_VERSION="${KUBECTL_VERSION:-v1.20.0}"
-ISTIO_VERSION="${ISTIO_VERSION:-1.6.13}"  # 1.7.x or 1.6.x 1.7.7, 1.6.13
-KNATIVE_VERSION="${KNATIVE_VERSION:-v0.18.3}"
-KFSERVING_VERSION="${KFSERVING_VERSION:-v0.5.0-rc2}"
+ISTIO_VERSION="${ISTIO_VERSION:-1.7.7}"  # 1.7.x or 1.6.x 1.7.7, 1.6.13
+KNATIVE_VERSION="${KNATIVE_VERSION:-v0.20.0}"
+KFSERVING_VERSION="${KFSERVING_VERSION:-v0.5.1}"
 
 
 
@@ -413,7 +413,7 @@ EOF
   fi
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/kiali.yaml -O && \
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/prometheus.yaml -O && \
-  # ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/extras/zipkin.yaml -O && \
+  ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/istio/istio/release-${ISTIO_RELEASE}/samples/addons/extras/zipkin.yaml -O && \
   cd ..
   echo "'istio-metrics' manifests are downloaded."
   echo -e "$(ls -AR ./istio-metrics)\n"
@@ -593,7 +593,9 @@ function install_knative () {
   ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-crds.yaml
   ${KUBECTL_COMMAND} apply -f ./knative-eventing/eventing-core.yaml
   ${KUBECTL_COMMAND} apply -f ./knative-eventing/kafka-namespace.yaml
-  ${KUBECTL_COMMAND} -n kafka apply -f ./knative-eventing/kafka-operator.yaml
+  # ${KUBECTL_COMMAND} -n kafka apply -f ./knative-eventing/kafka-operator.yaml \
+  ${KUBECTL_COMMAND} -n kafka create -f ./knative-eventing/kafka-operator.yaml \
+    || ${KUBECTL_COMMAND} -n kafka replace -f ./knative-eventing/kafka-operator.yaml 
   ${KUBECTL_COMMAND} -n kafka apply -f ./knative-eventing/kafka-ephemeral-single.yaml
   ${KUBECTL_COMMAND} apply -f ./knative-eventing/kafka-channel.yaml
   # ${KUBECTL_COMMAND} apply -f ./knative-eventing/in-memory-channel.yaml
@@ -642,9 +644,151 @@ function install_kfserving () {
   fi
 }
 
+function install_nginx () {
+  NAMESPACE="${1:-istio-system}"  
+  helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+  helm repo update
+
+  # https://github.com/kubernetes/ingress-nginx/blob/master/charts/ingress-nginx/values.yaml
+  helm -n ${NAMESPACE} status ingress-nginx || \
+    helm install \
+      ingress-nginx \
+      --namespace ${NAMESPACE} \
+      ingress-nginx/ingress-nginx \
+      --set metrics.enabled=true
+
+  kubectl -n ${NAMESPACE} wait deployment ingress-nginx-controller \
+    --for=condition=available \
+    --timeout=600s
+
+} > install_nginx.log 2>&1
+
+function install_opendistro () {
+  NAMESPACE="${1:-elasticsearch}"
+  RELEASE_NAME="${2:-elasticsearch}"
+
+  kubectl create namespace ${NAMESPACE} || \
+    echo "${NAMESPACE} exists. installing in [${NAMESPACE}]..."
+
+  kubectl -n ${NAMESPACE} create secret generic kibanaserver-user \
+    --from-literal=username=kibanaserver \
+    --from-literal=password=kibanaserver \
+    --from-literal=cookie="$(date +%s | sha256sum | head -c 128; echo)" ||
+    echo "[kibanaserver-user] in ${NAMESPACE} exists. Skipping..."
+
+  kubectl -n ${NAMESPACE} apply -f opendistro-es-user.yaml
+
+  kubectl -n ${NAMESPACE} get -f issuer-letsencrypt.yaml || \
+    kubectl -n ${NAMESPACE} create -f issuer-letsencrypt.yaml
+  kubectl -n ${NAMESPACE} apply -f opendistro-es-tls.yaml
+
+  helm -n ${NAMESPACE} status ${RELEASE_NAME} || \
+  helm install ${RELEASE_NAME} opendistro-es-1.13.0.tgz \
+    --namespace=${NAMESPACE} \
+    --values=opendistro-es.yaml \
+    --values=opendistro-kibana.yaml \
+    --set kibana.extraEnvs\[0\].name="ELASTICSEARCH_HOSTS" \
+    --set kibana.extraEnvs\[0\].value="https://${RELEASE_NAME}-opendistro-es-client-service:9200"
+
+} > install_opendistro.log 2>&1
+
+function install_fluent-bit () {
+  NAMESPACE="${1:-logging}"
+  RELEASE_NAME="${2:-fluent-bit}"
+  ES_NAMESPACE="${2:-elasticsearch}"
+
+  kubectl create namespace ${NAMESPACE} || \
+    echo "${NAMESPACE} exists. installing in [${NAMESPACE}]..."
+
+  kubectl create secret generic es-cred \
+  -n ${NAMESPACE} \
+  --from-literal=ELASTICSEARCH_USERNAME=admin \
+  --from-literal=ELASTICSEARCH_PASSWORD=admin || \
+    echo "secret [es-cred] in ${NAMESPACE} exists. Skipping..."
+
+  kubectl -n ${NAMESPACE} apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fluent-bit-es-rest-cert
+type: kubernetes.io/tls
+data:
+  ca.crt: "$(kubectl -n ${ES_NAMESPACE} get secrets elasticsearch-rest-certs -o jsonpath='{.data.tls\.crt}')"
+  tls.crt: "$(kubectl -n ${ES_NAMESPACE} get secrets elasticsearch-rest-certs -o jsonpath='{.data.tls\.crt}')"
+  tls.key: "$(kubectl -n ${ES_NAMESPACE} get secrets elasticsearch-rest-certs -o jsonpath='{.data.tls\.key}')"
+EOF
+
+  helm repo add fluent https://fluent.github.io/helm-charts
+  helm repo update
+
+  helm -n ${NAMESPACE} status ${RELEASE_NAME} || \
+  helm install fluent-bit fluent/fluent-bit \
+  --namespace ${NAMESPACE} \
+  --values=custom-values.yaml
+
+  kubectl -n ${NAMESPACE} apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  type: ExternalName
+  externalName: elasticsearch-opendistro-es-client-service.${ES_NAMESPACE}.svc.cluster.local
+  ports:
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+EOF
+
+} > install_fluent-bit.log 2>&1
+
+
+function post_install () {
+  NAMESPACE="${1:-istio-system}"
+  ES_RELEASE_NAME="${2:-elasticsearch}"
+  ES_NAMESPACE=${NAMESPACE}
+
+  kubectl create namespace ${NAMESPACE} || \
+    echo "${NAMESPACE} exists. installing in [${NAMESPACE}]..."
+
+  install_nginx $NAMESPACE
+
+  if [[ -d "./post-install" ]]; then
+    if [[ -d "./post-install/https" ]]; then
+      kubectl -n ${NAMESPACE} apply -f ./post-install/https
+    fi
+    # opendistro for elasticsearch
+    if [[ -d "./post-install/elasticsearch" ]]; then
+      local PWD="$(pwd)"
+      cd ./post-install/elasticsearch
+      install_opendistro $NAMESPACE $ES_RELEASE_NAME
+      cd $PWD
+    fi
+    # fluent-bit
+    if [[ -d "./post-install/fluent-bit" ]]; then
+      local PWD="$(pwd)"
+      cd ./post-install/fluent-bit
+      install_fluent-bit $NAMESPACE $RELEASE_NAME $ES_NAMESPACE
+      cd $PWD
+    fi
+  fi
+
+  if [[ -d "./post-install/test-cronjob" ]]; then
+    kubectl -n ${NAMESPACE} apply -f ./post-install/test-cronjob
+  fi
+} > post_install.log 2>&1
+
+
+
 
 function setup () {
   ISTIO_PROFILE="${1:-autoinjected}"
+
+  CERT_MANAGER_VERSION="${2:-1.1.0}"
+  KUBECTL_VERSION="${3:-v1.20.0}"
+  ISTIO_VERSION="${4:-1.7.7}"  # 1.7.x or 1.6.x 1.7.7, 1.6.13
+  KNATIVE_VERSION="${5:-v0.20.0}"
+  KFSERVING_VERSION="${6:-v0.5.1}"
 
   printf '%*s\n' 32 "" | tr ' ' '='
   printf 'KFServing Installer: setup'
@@ -670,7 +814,7 @@ function setup () {
   get_knative_yaml $KNATIVE_VERSION
   get_kfserving_yaml $KFSERVING_VERSION
 
-}
+} > setup.log 2>&1
 
 function install () {
   printf '%*s\n' 32 "" | tr ' ' '='
@@ -683,7 +827,25 @@ function install () {
   install_istio
   install_knative
   install_kfserving
-}
+} > install.log 2>&1
+
+function quick_install () {
+  APP_NAMESPACE="${1:-aiip-runtime}"
+
+  ISTIO_PROFILE="${2:-autoinjected}"
+
+  CERT_MANAGER_VERSION="${3:-1.1.0}"
+  KUBECTL_VERSION="${4:-v1.20.0}"
+  ISTIO_VERSION="${5:-1.7.7}"  # 1.7.x or 1.6.x 1.7.7, 1.6.13
+  KNATIVE_VERSION="${6:-v0.20.0}"
+  KFSERVING_VERSION="${7:-v0.5.1}"
+
+  setup $ISTIO_PROFILE $CERT_MANAGER_VERSION $KUBECTL_VERSION $ISTIO_VERSION $KNATIVE_VERSION $KFSERVING_VERSION
+  install
+  post_install $APP_NAMESPACE
+} > quick_install.log 2>&1
+
+
 
 
 # function uninstall () {

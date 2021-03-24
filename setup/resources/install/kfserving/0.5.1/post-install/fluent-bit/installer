@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -e
+set -o errtrace
+set -o errexit
+set -o nounset
+set -o pipefail
+
+
+NAMESPACE="${1:-logging}"
+RELEASE_NAME="${2:-fluent-bit}"
+ES_NAMESPACE="${2:-elasticsearch}"
+
+function install_fluent-bit () {
+  NAMESPACE="${1:-logging}"
+  RELEASE_NAME="${2:-fluent-bit}"
+  ES_NAMESPACE="${2:-elasticsearch}"
+
+  kubectl create namespace ${NAMESPACE} || \
+    echo "${NAMESPACE} exists. installing in [${NAMESPACE}]..."
+
+  kubectl create secret generic es-cred \
+  -n ${NAMESPACE} \
+  --from-literal=ELASTICSEARCH_USERNAME=admin \
+  --from-literal=ELASTICSEARCH_PASSWORD=admin || \
+    echo "secret [es-cred] in ${NAMESPACE} exists. Skipping..."
+
+  kubectl -n ${NAMESPACE} apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fluent-bit-es-rest-cert
+type: kubernetes.io/tls
+data:
+  ca.crt: "$(kubectl -n ${ES_NAMESPACE} get secrets elasticsearch-rest-certs -o jsonpath='{.data.tls\.crt}')"
+  tls.crt: "$(kubectl -n ${ES_NAMESPACE} get secrets elasticsearch-rest-certs -o jsonpath='{.data.tls\.crt}')"
+  tls.key: "$(kubectl -n ${ES_NAMESPACE} get secrets elasticsearch-rest-certs -o jsonpath='{.data.tls\.key}')"
+EOF
+
+  helm repo add fluent https://fluent.github.io/helm-charts
+  helm repo update
+  
+  helm -n ${NAMESPACE} status ${RELEASE_NAME} || \
+  helm install fluent-bit fluent/fluent-bit \
+  --namespace ${NAMESPACE} \
+  --values=custom-values.yaml
+
+  kubectl -n ${NAMESPACE} apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  type: ExternalName
+  externalName: elasticsearch-opendistro-es-client-service.${ES_NAMESPACE}.svc.cluster.local
+  ports:
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+EOF
+
+} > install_fluent-bit.log 2>&1
+
+install_fluent-bit $NAMESPACE $RELEASE_NAME $ES_NAMESPACE
+

@@ -127,11 +127,21 @@ kubectl -n kubernetes-dashboard patch secret kubernetes-dashboard-certs \
   {
     "op": "add",
     "path": "/data",
-    "value": "$(kubectl -n istio-system get secrets ingress-istio-tls-stg -o jsonpath="{.data}")"
+    "value": "$(kubectl -n istio-system get secrets ingress-istio-tls-prd -o jsonpath="{.data}")"
   }
 ]"
 
-kubectl -n kubernetes-dashboard patch secret kubernetes-dashboard-certs --type=merge -p "{"data": "$(kubectl -n istio-system get secrets ingress-istio-tls-stg -o jsonpath="{.data}")"}"
+kubectl -n kubernetes-dashboard patch secret kubernetes-dashboard-certs \
+  --type=json -p "
+[
+  {
+    "op": "replace",
+    "path": "/data",
+    "value": "$(kubectl -n istio-system get secrets ingress-istio-tls-prd -o jsonpath="{.data}")"
+  }
+]"
+
+kubectl -n kubernetes-dashboard patch secret kubernetes-dashboard-certs --type=merge -p "$(kubectl -n istio-system get secrets ingress-istio-tls-prd -o jsonpath="{.data}")"
 
 helm install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard \
   --namespace=kubernetes-dashboard \

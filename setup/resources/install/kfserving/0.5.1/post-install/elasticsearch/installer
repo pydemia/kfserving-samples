@@ -1,0 +1,43 @@
+#!/bin/bash
+
+set -e
+set -o errtrace
+set -o errexit
+set -o nounset
+set -o pipefail
+
+
+NAMESPACE="${1:-elasticsearch}"
+RELEASE_NAME="${2:-elasticsearch}"
+
+function install_opendistro () {
+  NAMESPACE="${1:-elasticsearch}"
+  RELEASE_NAME="${2:-elasticsearch}"
+
+  kubectl create namespace ${NAMESPACE} || \
+    echo "${NAMESPACE} exists. installing in [${NAMESPACE}]..."
+
+  kubectl -n ${NAMESPACE} create secret generic kibanaserver-user \
+    --from-literal=username=kibanaserver \
+    --from-literal=password=kibanaserver \
+    --from-literal=cookie="$(date +%s | sha256sum | head -c 128; echo)" ||
+    echo "[kibanaserver-user] in ${NAMESPACE} exists. Skipping..."
+
+  kubectl -n ${NAMESPACE} apply -f opendistro-es-user.yaml
+
+  kubectl -n ${NAMESPACE} get -f issuer-letsencrypt.yaml || \
+    kubectl -n ${NAMESPACE} create -f issuer-letsencrypt.yaml
+  kubectl -n ${NAMESPACE} apply -f opendistro-es-tls.yaml
+
+  helm -n ${NAMESPACE} status ${RELEASE_NAME} || \
+  helm install ${RELEASE_NAME} opendistro-es-1.13.0.tgz \
+    --namespace=${NAMESPACE} \
+    --values=opendistro-es.yaml \
+    --values=opendistro-kibana.yaml \
+    --set kibana.extraEnvs\[0\].name="ELASTICSEARCH_HOSTS" \
+    --set kibana.extraEnvs\[0\].value="https://${RELEASE_NAME}-opendistro-es-client-service:9200"
+
+} > install_opendistro.log 2>&1
+
+install_opendistro $NAMESPACE $RELEASE_NAME
+

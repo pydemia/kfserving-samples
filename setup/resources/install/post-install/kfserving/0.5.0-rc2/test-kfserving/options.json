@@ -1,2 +1,83 @@
-{\n    \"env\": [{\n        \"name\": \"MODEL_NAME\",\n\
-            \        \"value\": \"sentiment-cpu\"\n    }]\n}
+"{\n    \"env\": [{\n        \"name\": \"MODEL_NAME\",\n\
+            \        \"value\": \"sentiment-cpu\"\n    }]\n}"
+
+"{\n    \"env\": [{\n            \"name\": \"STORAGE_URI\"\
+            ,\n            \"value\": \"pvc://on-nfs-pvc\"\n        },\n        {\n\
+            \            \"name\": \"MODEL_NAME\",\n            \"value\": \"skh-bch-001\"\
+            \n        }\n    ],\n    \"command\": [\n        \"python\",\n       \
+            \ \"hm_inference.py\"\n    ],\n    \"args\": [\n        \"--model_name=$(MODEL_NAME)\"\
+            \n    ]\n}"
+
+
+{
+    "env": [{
+        "name": "MODEL_NAME",
+        "value": "sentiment-cpu"
+    }]
+}
+
+{
+    "env": [{
+            "name": "STORAGE_URI",
+            "value": "pvc://on-nfs-pvc"
+        },
+        {
+            "name": "MODEL_NAME",
+            "value": "skh-bch-001"
+        }
+    ]
+}
+
+
+{
+    "env": [{
+            "name": "STORAGE_URI",
+            "value": "pvc://on-nfs-pvc"
+        },
+        {
+            "name": "MODEL_NAME",
+            "value": "skh-bch-001"
+        }
+    ],
+    "args": [
+        "--model_name=$(MODEL_NAME)"
+    ]
+}
+
+{
+    "env": [{
+            "name": "STORAGE_URI",
+            "value": "pvc://on-nfs-pvc"
+        },
+        {
+            "name": "MODEL_NAME",
+            "value": "skh-bch-001-triage"
+        }
+    ],
+    "command": [
+        "python",
+        "hm_inference.py"
+    ],
+    "args": [
+        "--model_name="
+    ]
+}
+
+
+{ 
+  "container":
+    {
+        "env":[
+            {"name":"A"}, {"value":"B"}
+        ],
+        "command":["name","B"],
+        "image":"afsf",
+        "name":"kfserving-container",
+        "resources":
+            {"limits":
+                {"cpu":1,"memory":2,"gpu":7}
+            ,"requests":
+                {"cpu":1,"memory":2,"gpu":7}
+        }
+    }
+}

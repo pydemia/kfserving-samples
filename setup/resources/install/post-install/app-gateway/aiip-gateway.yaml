@@ -1,0 +1,148 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gateway
+  namespace: airuntime
+  labels:
+    app: gateway
+    app/group: airuntime
+    app/profile: default
+spec:
+  hosts:
+  - gateway
+  http:
+  - name: rule-account
+    match:
+    - port: 17000
+      # headers:
+        # end-user:
+        #   exact: jason
+      uri:
+        prefix: /api/account
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: account
+        port:
+          number: 17001
+  - name: rule-ifservice
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/ifservice
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: ifservice
+        port:
+          number: 17002
+  - name: rule-history
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/history
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: history
+        port:
+          number: 17003
+  - name: rule-monitoring
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/monitoring
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: monitoring
+        port:
+          number: 17004
+  - name: rule-core
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/core
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: core
+        port:
+          number: 17005
+  - name: rule-explain
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/explain
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: explain
+        port:
+          number: 17008
+  - name: rule-repo
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/repo
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: repo
+        port:
+          number: 17009
+  - name: rule-nginx
+    match:
+    - port: 17000
+      uri:
+        prefix: /api/nginx
+      ignoreUriCase: true
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: nginx
+        port:
+          number: 17100
+      # headers:
+      #   request:
+      #     set:
+      #     add:
+      #     remove:
+      #   response:
+      #     remove:
+      #     - foo
+    
+    # rewrite:
+    # Rewrite the original host header to the host header of Search service
+    # in order to redirect requests to Search service.
+    #   authority: kiali.istio-system.svc.cluster.local
+    #   uri: /
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: gateway
+  namespace: airuntime
+  labels:
+    app/group: airuntime
+    app/profile: default
+spec:
+  host: gateway
+  trafficPolicy:
+    tls:
+      mode: DISABLE

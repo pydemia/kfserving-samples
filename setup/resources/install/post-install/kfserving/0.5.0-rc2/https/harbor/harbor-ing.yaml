@@ -1,0 +1,68 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.allow-http: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    ingress.kubernetes.io/backends: '{"k8s-be-31105--75b1b90f9c5c0545":"HEALTHY","k8s1-75b1b90f-default-my-release-harbor-core-80-25530051":"HEALTHY","k8s1-75b1b90f-default-my-release-harbor-portal-80-53b4cab0":"HEALTHY"}'
+    ingress.kubernetes.io/forwarding-rule: k8s2-fr-dn7dhwd5-default-my-release-harbor-ingress-gcfxd6m2
+    ingress.kubernetes.io/proxy-body-size: "0"
+    ingress.kubernetes.io/ssl-cert: k8s2-cr-dn7dhwd5-51w34pv69hcyb7wk-1c4666dc4202a27c
+    ingress.kubernetes.io/static-ip: k8s2-fr-dn7dhwd5-default-my-release-harbor-ingress-gcfxd6m2
+    ingress.kubernetes.io/target-proxy: k8s2-tp-dn7dhwd5-default-my-release-harbor-ingress-gcfxd6m2
+    ingress.kubernetes.io/url-map: k8s2-um-dn7dhwd5-default-my-release-harbor-ingress-gcfxd6m2
+    meta.helm.sh/release-name: my-release
+    meta.helm.sh/release-namespace: default
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  finalizers:
+  - networking.gke.io/ingress-finalizer-V2
+  generation: 7
+  labels:
+    app: harbor
+    app.kubernetes.io/managed-by: Helm
+    chart: harbor
+    heritage: Helm
+    release: my-release
+  name: my-release-harbor-ingress
+  namespace: default
+spec:
+  rules:
+  - host: airuntime.net
+    http:
+      paths:
+      - backend:
+          serviceName: my-release-harbor-portal
+          servicePort: 80
+        path: /
+      - backend:
+          serviceName: my-release-harbor-core
+          servicePort: 80
+        path: /api
+      - backend:
+          serviceName: my-release-harbor-core
+          servicePort: 80
+        path: /service
+      - backend:
+          serviceName: my-release-harbor-core
+          servicePort: 80
+        path: /v2
+      - backend:
+          serviceName: my-release-harbor-core
+          servicePort: 80
+        path: /chartrepo
+      - backend:
+          serviceName: my-release-harbor-core
+          servicePort: 80
+        path: /c
+      - backend:
+          serviceName: headless-to-minio
+          servicePort: 80
+        path: /minio
+  tls:
+  - hosts:
+    - airuntime.net
+    secretName: my-release-harbor-ingress
+status:
+  loadBalancer:
+    ingress:
+    - ip: 34.67.145.255
