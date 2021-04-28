@@ -135,16 +135,16 @@ env:
     value: "elasticsearch"
   - name: FLUENT_ELASTICSEARCH_PORT
     value: "9200"
-  # - name: ELASTICSEARCH_USERNAME
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: es-cred
-  #       key: ELASTICSEARCH_USERNAME
-  # - name: ELASTICSEARCH_PASSWORD
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: es-cred
-  #       key: ELASTICSEARCH_PASSWORD
+  - name: ELASTICSEARCH_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: es-cred
+        key: ELASTICSEARCH_USERNAME
+  - name: ELASTICSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: es-cred
+        key: ELASTICSEARCH_PASSWORD
 
 # envFrom: []
 envFrom:
@@ -171,12 +171,13 @@ extraVolumes:
 #       path: elk-transport-root-ca.pem
 - name: elasticsearch-rest-certs
   secret:
-    secretName: fluent-bit-es-rest-cert
+    secretName: elasticsearch-rest-certs
     items:
     - key: tls.crt
       path: elk-rest-crt.pem
     - key: tls.key
       path: elk-rest-key.pem
+    # - key: tls.crt
     - key: ca.crt
       path: elk-rest-root-ca.pem
 # - name: elasticsearch-admin-certs
@@ -220,15 +221,15 @@ luaScripts: {}
 ## https://docs.fluentbit.io/manual/administration/configuring-fluent-bit/configuration-file
 config:
   service: |
-    [SERVICE]
-        Flush 1
-        Daemon Off
-        Log_Level info
-        Parsers_File parsers.conf
-        Parsers_File custom_parsers.conf
-        HTTP_Server On
-        HTTP_Listen 0.0.0.0
-        HTTP_Port {{ .Values.service.port }}
+      [SERVICE]
+          Flush 1
+          Daemon Off
+          Log_Level info
+          Parsers_File parsers.conf
+          Parsers_File custom_parsers.conf
+          HTTP_Server On
+          HTTP_Listen 0.0.0.0
+          HTTP_Port {{ .Values.service.port }}
 
   ## https://docs.fluentbit.io/manual/pipeline/inputs
   inputs: |
@@ -302,6 +303,8 @@ config:
           Match               kube.aiip-runtime.*
           Host                ${FLUENT_ELASTICSEARCH_HOST}
           Port                ${FLUENT_ELASTICSEARCH_PORT}
+          HTTP_User           ${ELASTICSEARCH_USERNAME}
+          HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
           Index               fluent-bit
           Type                _doc
           Logstash_Format     On
@@ -323,6 +326,8 @@ config:
           Match               kube.runtime-*
           Host                ${FLUENT_ELASTICSEARCH_HOST}
           Port                ${FLUENT_ELASTICSEARCH_PORT}
+          HTTP_User           ${ELASTICSEARCH_USERNAME}
+          HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
           Index               fluent-bit
           Type                _doc
           Logstash_Format     On
@@ -344,6 +349,8 @@ config:
           Match_Regex         kube\.(?!airuntime|aiip-runtime|runtime-).*
           Host                ${FLUENT_ELASTICSEARCH_HOST}
           Port                ${FLUENT_ELASTICSEARCH_PORT}
+          HTTP_User           ${ELASTICSEARCH_USERNAME}
+          HTTP_Passwd         ${ELASTICSEARCH_PASSWORD}
           Index               fluent-bit
           Type                _doc
           Logstash_Format     On

@@ -1,0 +1,55 @@
+apiVersion: cert-manager.io/v1  # >= v0.11
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prd
+  # namespace: istio-system  # It will be ignored when clusterissuer, which is cross-namespaced.
+spec:
+  acme:
+    email: yj.kim1@sk.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource used to store the account's private key.
+      # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
+      name: letsencrypt-prd-pkey
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector: {}
+    # - selector:
+    #     dnsZones:
+    #     - 'stg.airuntime.com'
+    #     - 'dev.airuntime.com'
+    #     # matchLabels:
+    #     #   letsencrypt-environment: "production"
+      http01:
+        ingress:
+          class: nginx
+---
+
+apiVersion: cert-manager.io/v1  # >= v0.11
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-stg
+  # namespace: istio-system  # It will be ignored when clusterissuer, which is cross-namespaced.
+spec:
+  acme:
+    email: yj.kim1@sk.com
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource used to store the account's private key.
+      # `kubectl -n cert-manager get secrets letsencrypt-staging-private-key`
+      name: letsencrypt-stg-pkey
+    solvers:
+    # An empty 'selector' means that this solver matches all domains
+    - selector: {}
+    # - selector:
+    #     dnsZones:
+    #     - 'stg.airuntime.com'
+    #     - 'dev.airuntime.com'
+    #     # matchLabels:
+    #     #   letsencrypt-environment: "staging"
+      http01:
+        ingress:
+          class: nginx
+---

@@ -24,6 +24,7 @@ metadata:
     # meta.helm.sh/release-name: my-release
     # meta.helm.sh/release-namespace: default
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   tls:
