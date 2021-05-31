@@ -42,4 +42,3 @@ spec:
               - name: tls-webhook
                 port: 15017
                 targetPort: 15017
-EOF
