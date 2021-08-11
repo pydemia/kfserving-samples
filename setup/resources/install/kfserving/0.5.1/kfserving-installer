@@ -629,6 +629,33 @@ data:
 }
 
 
+function config_knative () {
+  ${KUBECTL_COMMAND} -n knative-serving patch cm config-features --type=json -p='
+[
+    {
+        "op": "add",
+        "path": "/data/kubernetes\.podspec-affinity",
+        "value": "enabled"
+    },
+     {
+        "op": "add",
+        "path": "/data/kubernetes\.podspec-fieldref",
+        "value": "enabled"
+    },
+     {
+        "op": "add",
+        "path": "/data/kubernetes\.podspec-nodeselector",
+        "value": "enabled"
+    },
+     {
+        "op": "add",
+        "path": "/data/kubernetes\.podspec-tolerations",
+        "value": "enabled"
+    }
+]'
+}
+
+
 function get_kfserving_yaml () {
   KFSERVING_VERSION="v$(get_version_num "$1")"
   ${DOWNLOAD_COMMAND} https://raw.githubusercontent.com/kubeflow/kfserving/master/install/${KFSERVING_VERSION}/kfserving.yaml -O 
